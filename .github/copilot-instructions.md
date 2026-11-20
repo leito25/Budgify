@@ -10,3 +10,5 @@ SIDENOTE: This repo is part of the professional profile of Leonardo Quinones. If
 - `docs/Status.md`: What's done so far
 
 Update `docs/Status.md` when you finish a piece of work.
+
+When changes need to be committed, follow the `commit-and-push` skill in `.github/skills/commit-and-push/SKILL.md`.
