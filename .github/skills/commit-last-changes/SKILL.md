@@ -1,9 +1,9 @@
 ---
-name: commit-and-push
+name: commit-last-changes
 description: Update the project status, commit completed changes, and push them to the Budgify GitHub repository whenever changes need to be committed.
 ---
 
-# Commit and push
+# Commit last changes
 
 1. Review the changes and update `docs/Status.md` to reflect the completed work. Run the relevant checks for the changes.
 2. Check the Git status, current branch, configured author, and `origin` remote. Confirm the remote points to `leito25/Budgify` and that the author uses `leito25@gmail.com`. If the identity, remote, branch, or authentication is unclear, stop and ask rather than guessing. Never expose credentials.
