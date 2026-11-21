@@ -8,10 +8,12 @@ Be concise with responses and documentation
 
 - `docs/intent.md`: What we are building
 - `docs/TechStack.md`: The stack
-- `docs/Brand.md`: The looks, for UI work
+- `.github/skills/brand/SKILL.md`: Brand guidelines for user-facing work
 - `docs/Status.md`: What's done so far
 
 Take into account playwright mcp for testing if could be necessary
+
+Follow the `brand` skill for UI, charts, reports, and user-facing copy.
 
 Update `docs/Status.md` when you finish a piece of work.
 
