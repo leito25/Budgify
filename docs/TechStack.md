@@ -32,8 +32,9 @@ Budgify is built as a **client-side, offline-capable single-page web application
 ## Persistence, Session & Sample Data
 
 - **Local Persistence:** Browser-native **`IndexedDB`** (with a structured storage wrapper and `localStorage` fallback/flags) so all loans, income entries, payment statuses, and game progress persist across browser refreshes and app restarts with no internet connection required. `Personal` and `Small Business` are separate data sets; switching modes swaps the active data.
-- **Local Session Sign-In:** Name-only client-side session gate with no password, persisted locally (no cloud auth or remote servers in the MVP).
-- **Sample Data & Reset:** Seed dataset loaded on first run (realistic credit card installments, microloans, small-business loans across industries, sample income, calendar dates, and overdue examples) with a one-click in-app reset and a documented reset command/script to restore clean sample state.
+- **Local Profile & Session:** Save one name-only local profile separately from the session. Restore an active session across restarts; signing out preserves the name and data and shows the saved name on return. This is not authentication, and there is no registration, cloud sync, or remote server.
+- **Sample Data & Reset:** Seed dataset loaded on first run (realistic credit card installments, microloans, small-business loans across industries, sample income, calendar dates, and overdue examples). A confirmed in-app reset erases the name and local data, restores sample state, and returns to name entry.
+- **Storage Limits:** Browser profiles and future Electron and Capacitor installations use separate local storage. Clearing site/app data, private browsing, or memory-only fallback can lose data; make storage failures visible and do not promise cross-device recovery.
 
 ## Desktop & Mobile Wrappers (documented, not shipped in the MVP)
 

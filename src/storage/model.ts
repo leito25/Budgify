@@ -1,9 +1,12 @@
 import type { GameProgress, Workspace, WorkspaceMode } from "../domain/types";
 import type { Language } from "../i18n";
 
+export const CURRENT_SCHEMA_VERSION = 2;
+
 export interface AppState {
   schemaVersion: number;
   userName: string | null;
+  isSignedIn: boolean;
   hasSignedIn: boolean;
   activeMode: WorkspaceMode;
   language: Language;

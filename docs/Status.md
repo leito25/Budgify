@@ -16,9 +16,14 @@
 - Added translation-key parity validation, GitHub Actions CI and Pages workflows, a cross-platform browser-opening reset helper, project README, and Electron/Capacitor wrapper guidance.
 - Updated muted text contrast and modal focus handling in response to automated accessibility testing.
 - Validation completed locally: 36 unit tests pass; desktop and mobile-width Chromium E2E suites pass; Firefox and WebKit suites pass after stabilizing the print action; production dependency audit reports no vulnerabilities.
+- Deployed to GitHub Pages with GitHub Actions; verified the live sign-in and dashboard in Chromium.
+- Made `npm test` run both unit and end-to-end suites; updated CI, setup guidance, and shared agent instructions for the planned Electron and Capacitor targets.
+- Implemented the persistent local name and separate session, legacy migration, confirmed reset, storage warnings, and focused unit and browser tests.
+- Profile-change validation: 42 unit tests and 58 browser tests pass; the browser-restart test is Chromium-only and skipped in Firefox and WebKit. Build and translation parity pass.
+- Compared the dashboard with the selected Planning Board mockup; aligned summary cards, six-month timeline, loan lanes, and payment-date cards while retaining accessible details and mobile reflow.
+- Dashboard validation: 42 unit tests and 62 browser tests pass; 2 Chromium-only restart cases are skipped in Firefox and WebKit. Build and translation parity pass.
 
 ## Remaining release validation
 
-- The GitHub Pages workflow is ready, but deployment, Pages permissions, and live-URL smoke testing remain unverified.
 - The observed non-technical demo in `docs/demo-script.md` still requires a participant and must be completed outside this coding session.
 - Linked the Colombian preset to the SFC's official interest-certification listing. Recheck the dated values when updating them; never treat them as current offers or legal limits.

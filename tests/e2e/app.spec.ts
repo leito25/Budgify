@@ -1,5 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { chromium, expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 function watchBrowserErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -39,8 +42,194 @@ test("sign-in, language preference, and session persist without a password", asy
   await page.reload();
   await expect(page.getByRole("heading", { name: "Tu dinero, en movimiento." })).toBeVisible();
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
-  await expect(page.getByLabel("Tu nombre")).toBeVisible();
+  await expect(page.getByLabel("Tu nombre")).toHaveValue("Alex");
+  await page.reload();
+  await expect(page.getByLabel("Tu nombre")).toHaveValue("Alex");
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("sign-out preserves the profile and data until a confirmed reset", async ({ page }) => {
+  const errors = watchBrowserErrors(page);
+  await signIn(page);
+  await page.getByRole("link", { name: "Loans & Installments" }).click();
+  await page.getByRole("button", { name: "Add loan" }).click();
+  await fillLoanForm(page, "Saved profile loan");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Saved profile loan" })).toBeVisible();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByLabel("Your name")).toHaveValue("Alex");
+  await expect(page.getByLabel("Your name")).toHaveAttribute("readonly", "");
+  await page.reload();
+  await expect(page.getByLabel("Your name")).toHaveValue("Alex");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Saved profile loan" })).toBeVisible();
+
+  let resetWarning = "";
+  page.once("dialog", async (dialog) => {
+    resetWarning = dialog.message();
+    await dialog.dismiss();
+  });
+  await page.getByRole("button", { name: "Reset sample data" }).click();
+  expect(resetWarning).toContain("name");
+  await expect(page.getByRole("row").filter({ hasText: "Saved profile loan" })).toBeVisible();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByLabel("Your name")).toHaveValue("Alex");
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Reset sample data" }).click();
+  await expect(page.getByLabel("Your name")).toHaveValue("");
+  await page.reload();
+  await expect(page.getByLabel("Your name")).toHaveValue("");
+  await page.getByLabel("Your name").fill("Morgan");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("link", { name: "Loans & Installments" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Saved profile loan" })).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: "Grocery installment" })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("memory-only mode warns before and after sign-in", async ({ page }) => {
+  const errors = watchBrowserErrors(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "indexedDB", { get() { throw new Error("blocked"); } });
+    Object.defineProperty(window, "localStorage", { get() { throw new Error("blocked"); } });
+  });
+  await page.goto("/");
+  await expect(page.getByRole("status").filter({ hasText: "Memory-only mode" })).toBeVisible();
+  await page.getByLabel("Your name").fill("Alex");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Memory-only mode" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Your name")).toHaveValue("");
+  expect(errors).toEqual([]);
+});
+
+test("a failed profile write is reported without signing in", async ({ page }) => {
+  const errors = watchBrowserErrors(page);
+  await page.goto("/");
+  await expect(page.getByLabel("Your name")).toBeVisible();
+  await page.evaluate(() => {
+    IDBObjectStore.prototype.put = () => { throw new DOMException("Storage full", "QuotaExceededError"); };
+  });
+  await page.getByLabel("Your name").fill("Alex");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("alert")).toContainText("Your change could not be saved");
+  await expect(page.getByRole("heading", { name: "Welcome to Budgify" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Your name")).toHaveValue("");
+  expect(errors).toEqual([]);
+});
+
+test("profile and data survive a browser restart", async ({ browserName, baseURL }) => {
+  test.skip(browserName !== "chromium", "Persistent Chromium profile covers browser restart.");
+  if (!baseURL) throw new Error("A base URL is required.");
+  const directory = await mkdtemp(join(tmpdir(), "budgify-profile-"));
+  let context: BrowserContext | undefined;
+  try {
+    context = await chromium.launchPersistentContext(directory, { headless: true, baseURL });
+    const page = await context.newPage();
+    const firstErrors = watchBrowserErrors(page);
+    await signIn(page);
+    await page.getByRole("link", { name: "Loans & Installments" }).click();
+    await page.getByRole("button", { name: "Add loan" }).click();
+    await fillLoanForm(page, "Restart saved loan");
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("row").filter({ hasText: "Restart saved loan" })).toBeVisible();
+    expect(firstErrors).toEqual([]);
+    await context.close();
+    context = undefined;
+
+    context = await chromium.launchPersistentContext(directory, { headless: true, baseURL });
+    const reopened = await context.newPage();
+    const reopenedErrors = watchBrowserErrors(reopened);
+    await reopened.goto("/");
+    await expect(reopened.getByRole("heading", { name: "Your money, in motion." })).toBeVisible();
+    await expect(reopened.getByText("Alex,", { exact: false })).toBeVisible();
+    await reopened.getByRole("link", { name: "Loans & Installments" }).click();
+    await expect(reopened.getByRole("row").filter({ hasText: "Restart saved loan" })).toBeVisible();
+    await reopened.getByRole("button", { name: "Sign out" }).click();
+    await expect(reopened.getByLabel("Your name")).toHaveValue("Alex");
+    expect(reopenedErrors).toEqual([]);
+    await context.close();
+    context = undefined;
+
+    context = await chromium.launchPersistentContext(directory, { headless: true, baseURL });
+    const signedOut = await context.newPage();
+    const signedOutErrors = watchBrowserErrors(signedOut);
+    await signedOut.goto("/");
+    await expect(signedOut.getByLabel("Your name")).toHaveValue("Alex");
+    await signedOut.getByRole("button", { name: "Continue" }).click();
+    await signedOut.getByRole("link", { name: "Loans & Installments" }).click();
+    await expect(signedOut.getByRole("row").filter({ hasText: "Restart saved loan" })).toBeVisible();
+    expect(signedOutErrors).toEqual([]);
+  } finally {
+    if (context) await context.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("legacy signed-out data is preserved when a name is requested", async ({ page }) => {
+  const errors = watchBrowserErrors(page);
+  await signIn(page);
+  await page.getByRole("link", { name: "Loans & Installments" }).click();
+  await page.getByRole("button", { name: "Add loan" }).click();
+  await fillLoanForm(page, "Legacy saved loan");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Legacy saved loan" })).toBeVisible();
+
+  await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("budgify");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction("records", "readwrite");
+      const store = transaction.objectStore("records");
+      const request = store.get("budgify-state");
+      request.onsuccess = () => {
+        const record = JSON.parse(request.result) as {
+          schemaVersion: number;
+          data: { schemaVersion: number; userName: string | null; isSignedIn?: boolean };
+        };
+        record.schemaVersion = 1;
+        record.data.schemaVersion = 1;
+        record.data.userName = null;
+        delete record.data.isSignedIn;
+        store.put(JSON.stringify(record), "budgify-state");
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+    database.close();
+  });
+
+  await page.reload();
+  await expect(page.getByLabel("Your name")).toHaveValue("");
+  await page.getByLabel("Your name").fill("Alex");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Legacy saved loan" })).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Reset sample data" }).click();
+  await expect(page.getByLabel("Your name")).toHaveValue("");
+  const backup = await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("budgify");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const value = await new Promise<unknown>((resolve, reject) => {
+      const request = database.transaction("records").objectStore("records").get("budgify-state-backup-v1");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    database.close();
+    return value;
+  });
+  expect(backup).toBeUndefined();
   expect(errors).toEqual([]);
 });
 
@@ -151,6 +340,40 @@ test("main screens have no automated accessibility violations", async ({ page })
   expect(errors).toEqual([]);
 });
 
+test("dashboard matches the planning board and exposes six monthly totals", async ({ page }) => {
+  const errors = watchBrowserErrors(page);
+  await signIn(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const summaries = page.locator(".dashboard-grid > article");
+  const first = await summaries.nth(0).boundingBox();
+  const third = await summaries.nth(2).boundingBox();
+  expect(first).not.toBeNull();
+  expect(third).not.toBeNull();
+  expect(Math.abs(first!.y - third!.y)).toBeLessThan(2);
+  const payments = page.locator(".payment-row");
+  const firstPayment = await payments.nth(0).boundingBox();
+  const thirdPayment = await payments.nth(2).boundingBox();
+  expect(firstPayment).not.toBeNull();
+  expect(thirdPayment).not.toBeNull();
+  expect(Math.abs(firstPayment!.y - thirdPayment!.y)).toBeLessThan(2);
+
+  const details = page.locator(".timeline-details");
+  await expect(details).not.toHaveAttribute("open");
+  await details.locator("summary").focus();
+  await page.keyboard.press("Enter");
+  const rows = details.getByRole("row");
+  await expect(rows).toHaveCount(7);
+  await expect(rows.filter({ hasText: "2026-12" })).toContainText("$1,691.30");
+  await expect(rows.filter({ hasText: "2027-04" })).toContainText("$750.80");
+  await page.setViewportSize({ width: 375, height: 667 });
+  const firstMobile = await summaries.nth(0).boundingBox();
+  const thirdMobile = await summaries.nth(2).boundingBox();
+  expect(firstMobile).not.toBeNull();
+  expect(thirdMobile).not.toBeNull();
+  expect(thirdMobile!.y).toBeGreaterThan(firstMobile!.y + firstMobile!.height);
+  expect(errors).toEqual([]);
+});
+
 test("income CRUD keeps recurring and one-time amounts distinct", async ({ page }) => {
   const errors = watchBrowserErrors(page);
   await signIn(page);
@@ -237,6 +460,9 @@ test("reset restores sample data and mobile layout has no horizontal overflow", 
   await page.getByRole("combobox", { name: "Idioma" }).selectOption("en");
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Reset sample data" }).click();
+  await expect(page.getByLabel("Your name")).toHaveValue("");
+  await page.getByLabel("Your name").fill("Alex");
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("link", { name: "Loans & Installments" }).click();
   await expect(page.getByRole("row").filter({ hasText: "Grocery installment" })).toBeVisible();
   expect(errors).toEqual([]);

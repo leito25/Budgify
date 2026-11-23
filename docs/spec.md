@@ -25,7 +25,9 @@ The protected core is financial calculations, loan and income CRUD, the payment 
 
 ### Session and workspaces
 
-- Start with a local, name-only sign-in; persist the simulated session. Do not request a password or imply account security.
+- On first use, ask for a name and save one local profile and its simulated session. Restore the name and session after a reload or app restart unless the user signed out. Do not require registration or a password.
+- Signing out returns to the entry screen but preserves the saved name and all workspace data. Show the saved name when the user returns and let them continue with it; signing out does not reset or create a separate profile.
+- The name is not authentication: anyone using the same browser profile or app installation can access the data. Data is local to that storage context, not synced or recoverable across devices; clearing site/app data, private browsing, or memory-only storage can cause data loss.
 - Offer Personal and Small Business modes with separate local data sets. Switching modes changes the active data without merging it.
 - Each workspace has one region and its currency: Colombia uses COP and the US uses USD. Do not convert currencies or combine amounts across workspaces.
 - Personal mode has no stated loan limit. Small Business blocks saving a fourth active loan until a simulated membership upgrade is accepted or the user switches mode. Paid-off loans do not count.
@@ -63,7 +65,7 @@ The protected core is financial calculations, loan and income CRUD, the payment 
 - Download an amortization CSV and offer a print-styled, one-page summary of loans, payments, and totals. Scope both to the active workspace and its currency. Translate generated headers and labels; preserve user-entered text as entered.
 - Provide an English/Spanish toggle covering all UI strings, validation, charts, helper content, game content, and report labels. Preserve user-entered text and persist the preference.
 - Seed realistic data on first use: credit card installments, personal microloans, business equipment loans, income, upcoming payments, and at least one overdue example. Dates must remain useful when the seed is created.
-- Provide an in-app reset that confirms data loss, clears local app data, and restores sample data. Document the reset; do not silently discard existing data.
+- Provide an in-app reset that warns that the saved name and local app data will be erased. On confirmation, clear the profile and session, restore sample data, and return to the first-use name entry screen; cancellation changes nothing. Document the reset; do not silently discard existing data.
 
 ## Design
 
@@ -81,7 +83,7 @@ The protected core is financial calculations, loan and income CRUD, the payment 
 - Build a client-side component-based SPA with TypeScript, static assets, relative asset paths, and hash or equivalent client-side routing compatible with GitHub Pages. Select concrete framework and tooling during implementation within [TechStack.md](./TechStack.md).
 - Separate presentation, translation, persistence, and deterministic financial/game domain logic. The UI displays derived values rather than storing manually assigned statuses.
 - Store versioned local data in IndexedDB through a structured storage layer, with the documented localStorage fallback/flags. Report storage and migration failures visibly; never report an unsaved change as successful.
-- Model a local user/session; separate workspace records by profile mode and region/currency; store loans and their payment state, income entries, upgrade state, and game progress. Store enough payment information to reproduce settled amounts once late-fee and edit policies are agreed.
+- Store the local profile name separately from session state so signing out cannot erase the name or workspace data. Preserve existing saved data during migration; if a legacy signed-out state has no name, ask for one without reseeding or deleting its data. Separate workspace records by profile mode and region/currency; store loans and their payment state, income entries, upgrade state, and game progress. Store enough payment information to reproduce settled amounts once late-fee and edit policies are agreed.
 - Derive schedules, loan status, calendar entries, dashboard aggregates, and report totals from the same domain rules. Update dependent views immediately after successful writes and retain data across refreshes and restarts.
 - Bundle application assets, translations, reference data, and fonts locally. The app must work without network access after initial setup; there is no backend, bank integration, or runtime rate service.
 

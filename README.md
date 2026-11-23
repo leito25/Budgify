@@ -20,17 +20,18 @@ The target browsers are current Chrome, Edge, Firefox, and Safari. Automated bro
 ```sh
 npm run check:i18n
 npm run typecheck
-npm test
 npx playwright install
-npm run test:e2e
+npm test
 npm run build
 ```
+
+`npm test` runs all unit tests followed by all Playwright end-to-end projects and fails if either suite fails. For individual suites, use `npm run test:unit` or `npm run test:e2e`. Install Playwright browsers once after installing dependencies; Linux may also require `npx playwright install-deps`.
 
 Playwright's `mobile-chromium` project uses a 375-pixel viewport to exercise the responsive layout. Firefox, WebKit, and additional tablet/desktop viewports can be selected in `playwright.config.ts`.
 
 ## Reset local data
 
-Budgify stores data in the current browser profile's IndexedDB, falling back to localStorage or memory. Start the app, then use **Reset sample data** and confirm. To open the app in the system browser from another terminal, run:
+Budgify stores the name and data in the current browser profile's IndexedDB, falling back to localStorage or temporary memory when selecting storage. Once a storage backend is in use, a failed write is reported instead of silently switching to a potentially stale copy. Signing out preserves the name and data; an active session resumes after reopening the browser. To erase the saved name and data and restore sample records, use **Reset sample data** and confirm. The app then returns to name entry. To open the app in the system browser from another terminal, run:
 
 ```sh
 npm run reset
@@ -40,7 +41,7 @@ The command accepts an optional app URL, for example `npm run reset -- http://lo
 
 ## Privacy and limitations
 
-The name-only local sign-in is not authentication. Anyone using the same browser profile may see the saved data. Budgify does not connect to banks, offer credit, make payments, or treat static reference rates as legal limits or offers.
+The name-only local sign-in is not authentication. Anyone using the same browser profile may see the saved data. Data is not synced between devices or app installations, and private browsing, cleared storage, or memory-only mode can cause data loss. Budgify does not connect to banks, offer credit, make payments, or treat static reference rates as legal limits or offers.
 
 ## Deployment
 

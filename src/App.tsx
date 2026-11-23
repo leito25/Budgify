@@ -303,9 +303,12 @@ function Dashboard({
   );
   const activeDebtMinor = aggregate.principalRemainingMinor + aggregate.interestRemainingMinor;
   const principalShare = activeDebtMinor === 0 ? 0 : aggregate.principalRemainingMinor / activeDebtMinor;
-  const nextPayments = aggregate.calendarEntries
-    .filter((entry) => entry.status !== "Paid")
-    .slice(0, 6);
+  const unpaidPayments = aggregate.calendarEntries.filter((entry) => entry.status !== "Paid");
+  const nextPayments = unpaidPayments.slice(0, 6);
+  const money = (amount: number) => {
+    const formatted = formatMoney(amount, currency, locale);
+    return formatted.includes(currency) ? formatted : `${formatted} ${currency}`;
+  };
   const highestRateLoan = [...workspace.loans].sort((left, right) =>
     rateToMonthly(right.rate, right.rateBasis) - rateToMonthly(left.rate, left.rateBasis))[0];
   const statusGroups: { status: LoanStatus[]; label: string; className: string }[] = [
@@ -325,27 +328,27 @@ function Dashboard({
     <section className="page-section">
       <div className="page-heading">
         <div><p className="eyebrow">{formatLocaleDate(todayDate(), state.language)} · {currency}</p><h1>{t("dashboard.title")}</h1><p className="muted"> {state.userName ? `${state.userName}, ` : ""}{t("app.estimateNotice")}</p></div>
-        <button type="button" className="button secondary" onClick={() => go("loans")}>{t("loans.title")} ↓</button>
+        <button type="button" className="button primary" onClick={() => go("loans")}>{t("loans.title")} ↓</button>
       </div>
       <div className="dashboard-grid">
         <article className="hero-card">
           <p className="eyebrow">{t("dashboard.netBalance")}</p>
-          <strong className="hero-value">{formatMoney(aggregate.monthlyNetBalanceMinor, currency, locale)}</strong>
-          <p className="small muted">{t("dashboard.recurringIncome")} less {t("dashboard.monthlyPayments")}</p>
-          <div className="hero-details"><span>{t("dashboard.recurringIncome")}<strong>{formatMoney(aggregate.recurringIncomeMinor, currency, locale)}</strong></span><span>{t("dashboard.monthlyPayments")}<strong>{formatMoney(aggregate.monthlyObligationsMinor, currency, locale)}</strong></span></div>
+          <strong className="hero-value">{money(aggregate.monthlyNetBalanceMinor)}</strong>
+          <p className="small muted">{t("dashboard.balanceDescription")}</p>
+          <div className="hero-details"><span>{t("dashboard.recurringIncome")}<strong>{money(aggregate.recurringIncomeMinor)}</strong></span><span>{t("dashboard.monthlyPayments")}<strong>{money(aggregate.monthlyObligationsMinor)}</strong></span></div>
         </article>
         <article className="panel-card">
-          <div className="card-heading"><div><p className="eyebrow">{t("dashboard.debtBreakdown")}</p><h2>{formatMoney(activeDebtMinor, currency, locale)}</h2></div><span className="tag">{t("app.estimateNotice")}</span></div>
+          <div className="card-heading"><div><p className="eyebrow">{t("dashboard.debtBreakdown")}</p><h2>{money(activeDebtMinor)}</h2></div><span className="tag">{t("dashboard.estimate")}</span></div>
           <svg className="breakdown-chart" viewBox="0 0 300 18" role="img" aria-labelledby="breakdown-title">
             <title id="breakdown-title">{t("dashboard.debtBreakdown")}: {formatMoney(aggregate.principalRemainingMinor, currency, locale)} {t("dashboard.principal")}, {formatMoney(aggregate.interestRemainingMinor, currency, locale)} {t("dashboard.interest")}</title>
             <rect x="0" y="0" width={300 * principalShare} height="18" rx="8" fill="#06D6A0" />
             <rect x={300 * principalShare} y="0" width={300 * (1 - principalShare)} height="18" rx="8" fill="#FFC145" />
           </svg>
-          <table className="chart-table"><tbody><tr><th>{t("dashboard.principal")}</th><td>{formatMoney(aggregate.principalRemainingMinor, currency, locale)}</td></tr><tr><th>{t("dashboard.totalInterest")}</th><td>{formatMoney(aggregate.interestRemainingMinor, currency, locale)}</td></tr></tbody></table>
+          <table className="chart-table"><tbody><tr><th>{t("dashboard.principal")}</th><td>{money(aggregate.principalRemainingMinor)}</td></tr><tr><th>{t("dashboard.totalInterest")}</th><td>{money(aggregate.interestRemainingMinor)}</td></tr></tbody></table>
         </article>
         <article className="panel-card">
-          <div className="card-heading"><div><p className="eyebrow">{t("dashboard.timeline")}</p><h2>{formatMoney(aggregate.monthlyObligationsMinor, currency, locale)}</h2></div><span className="small muted">{currency} · {t("app.estimateNotice")}</span></div>
-          <PaymentTimeline entries={nextPayments} currency={currency} language={state.language} locale={locale} />
+          <div className="card-heading"><div><p className="eyebrow">{t("dashboard.timeline")}</p><h2>{money(aggregate.monthlyObligationsMinor)}</h2></div><span className="small muted">{t("dashboard.scheduled")}</span></div>
+          <PaymentTimeline entries={unpaidPayments} currency={currency} language={state.language} locale={locale} detailsLabel={t("dashboard.timelineDetails")} />
         </article>
       </div>
       {aggregate.overdueCount > 0 && (
@@ -354,7 +357,7 @@ function Dashboard({
           <button type="button" className="text-button" onClick={() => go("calendar")}>{t("nav.calendar")} →</button>
         </div>
       )}
-      <div className="board-heading"><div><p className="eyebrow">{currency}</p><h2>{t("dashboard.statusBoard")}</h2></div><span>{workspace.loans.length} {t("common.loans")}</span></div>
+      <div className="board-heading"><div><p className="eyebrow">{t("common.loans")} · <span>{currency}</span></p><h2>{t("dashboard.statusBoard")}</h2><p className="small muted">{t("dashboard.boardCaption")}</p></div><span>{workspace.loans.length} {t("common.loans")}</span></div>
       <div className="status-board">
         {statusGroups.map((group) => {
           const rows = workspace.loans.filter((loan) =>
@@ -366,7 +369,8 @@ function Dashboard({
               const next = aggregate.calendarEntries.find((entry) => entry.loanId === loan.id && entry.status !== "Paid");
               return <article className="loan-card" key={loan.id}>
                 <div className="card-heading"><strong>{loan.name}</strong>{statusBadge(status, t(statusLabels[status]))}</div>
-                <div className="loan-card-details"><span><small>{t("dashboard.activeDebt")}</small><strong>{formatMoney(remainingForLoan(loan), currency, locale)}</strong></span><span><small>{t("common.dueDate")}</small><strong>{next ? formatLocaleDate(next.installment.dueDate, state.language) : t("calendar.paid")}</strong></span></div>
+                {loan.description && <p className="loan-description">{loan.description}</p>}
+                <div className="loan-card-details"><span><small>{t("dashboard.activeDebt")}</small><strong>{money(remainingForLoan(loan))}</strong></span><span><small>{t("common.dueDate")}</small><strong>{next ? `${formatLocaleDate(next.installment.dueDate, state.language)} · ${money(next.installment.amountMinor)}` : t("calendar.paid")}</strong></span></div>
               </article>;
             })}
             {rows.length === 0 && <p className="small muted">{t("common.empty")}</p>}
@@ -375,9 +379,9 @@ function Dashboard({
       </div>
       <div className="bottom-grid">
         <section className="panel-card">
-          <div className="card-heading"><div><p className="eyebrow">{t("dashboard.upcoming")}</p><h2>{t("nav.calendar")}</h2></div><button type="button" className="text-button" onClick={() => go("calendar")}>{t("common.search")} →</button></div>
+          <div className="card-heading payment-heading"><div><p className="eyebrow">{t("dashboard.upcoming")}</p><h2>{t("dashboard.paymentDates")}</h2></div><button type="button" className="text-button" onClick={() => go("calendar")}>{t("dashboard.viewDates")} →</button></div>
           <div className="payment-list">
-            {nextPayments.slice(0, 3).map((entry) => <div className="payment-row" key={`${entry.loanId}-${entry.installment.index}`}><span>{statusBadge(entry.status, t(statusLabels[entry.status]))}</span><strong>{entry.loanName}</strong><span>{formatLocaleDate(entry.installment.dueDate, state.language)}</span><b>{formatMoney(entry.installment.amountMinor, currency, locale)}</b></div>)}
+            {nextPayments.slice(0, 3).map((entry) => <div className="payment-row" key={`${entry.loanId}-${entry.installment.index}`}><span>{formatLocaleDate(entry.installment.dueDate, state.language)} · {t(statusLabels[entry.status])}</span><strong>{entry.loanName}</strong><b>{money(entry.installment.amountMinor)}</b></div>)}
             {nextPayments.length === 0 && <p className="muted">{t("calendar.empty")}</p>}
           </div>
         </section>
@@ -392,11 +396,13 @@ function PaymentTimeline({
   currency,
   language,
   locale,
+  detailsLabel,
 }: {
   entries: ReturnType<typeof aggregateWorkspace>["calendarEntries"];
   currency: Currency;
   language: Language;
   locale: string;
+  detailsLabel: string;
 }) {
   const months = new Map<string, number>();
   for (const entry of entries) {
@@ -409,12 +415,13 @@ function PaymentTimeline({
     <svg className="timeline-chart" viewBox={`0 0 ${Math.max(1, rows.length) * 48} 100`} role="img" aria-label={rows.map(([month, amount]) => `${month}: ${formatMoney(amount, currency, locale)}`).join("; ")}>
       {rows.map(([month, amount], index) => {
         const height = amount / max * 64;
-        return <g key={month}><rect x={index * 48 + 8} y={72 - height} width="28" height={height} rx="5" fill={["#06D6A0", "#FFC145", "#F78C6B", "#118AB2", "#EF476F", "#CDD8DB"][index % 6]} /><text x={index * 48 + 22} y="94" textAnchor="middle">{month.slice(5)}</text></g>;
+        const label = new Intl.DateTimeFormat(language === "es" ? "es-CO" : "en-US", { month: "short", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`));
+        return <g key={month}><rect x={index * 48 + 8} y={72 - height} width="28" height={height} rx="5" fill={["#B9EBE0", "#06D6A0", "#FFC145", "#F78C6B", "#A9D8E2", "#DCEBED"][index % 6]} /><text x={index * 48 + 22} y="94" textAnchor="middle">{label}</text></g>;
       })}
     </svg>
-    <table className="chart-table"><thead><tr><th>{language === "es" ? "Mes" : "Month"}</th><th>{language === "es" ? "Pagos" : "Payments"}</th></tr></thead><tbody>
+    <details className="timeline-details"><summary>{detailsLabel}</summary><table className="chart-table"><thead><tr><th>{language === "es" ? "Mes" : "Month"}</th><th>{language === "es" ? "Pagos" : "Payments"}</th></tr></thead><tbody>
       {rows.map(([month, amount]) => <tr key={month}><th>{month}</th><td>{formatMoney(amount, currency, locale)}</td></tr>)}
-    </tbody></table>
+    </tbody></table></details>
   </div>;
 }
 
@@ -677,20 +684,19 @@ export default function App() {
     if (!state.hasSignedIn) {
       const seeded = createInitialState(todayDate(), { [mode]: region });
       seeded.userName = name.trim();
+      seeded.isSignedIn = true;
       seeded.activeMode = mode;
       seeded.language = state.language;
       seeded.hasSignedIn = true;
-      try {
-        const next = await repository.reset(seeded);
-        setState(next);
-        setStorageMode(repository.mode);
-        setError("");
-      } catch (caught) {
-        setError(`${t("storage.writeError")} ${errorText(caught)}`);
-      }
+      await persist(() => seeded);
       return;
     }
-    await persist((current) => ({ ...current, userName: name.trim(), activeMode: mode }));
+    await persist((current) => ({
+      ...current,
+      userName: current.userName ?? name.trim(),
+      isSignedIn: true,
+      activeMode: mode,
+    }));
   }
 
   async function switchMode(mode: WorkspaceMode) {
@@ -810,22 +816,19 @@ export default function App() {
 
   async function resetApp() {
     if (!state || !repository || !window.confirm(t("common.resetConfirm"))) return;
-    const regions = {
-      personal: state.workspaces.personal.region,
-      business: state.workspaces.business.region,
-    };
     try {
-      const next = await repository.reset(resetState(state, todayDate(), regions));
+      const next = await repository.reset(resetState(todayDate()));
       setState(next);
       setStorageMode(repository.mode);
       setError("");
+      void go("dashboard");
     } catch (caught) {
       setError(`${t("storage.writeError")} ${errorText(caught)}`);
     }
   }
 
   async function signOut() {
-    await persist((current) => ({ ...current, userName: null }));
+    await persist((current) => ({ ...current, isSignedIn: false }));
   }
 
   async function updateLanguage(nextLanguage: Language) {
@@ -889,9 +892,9 @@ export default function App() {
   }
 
   if (loading) return <main className="loading-screen" aria-live="polite">Budgify</main>;
-  if (recovery) return <main className="recovery-screen"><h1>{t("storage.recovery")}</h1><p>{error}</p><button className="button danger" onClick={() => { if (repository) void repository.reset(createInitialState(todayDate())).then(setState).then(() => setRecovery(false)).catch((caught: unknown) => setError(errorText(caught))); }}>{t("common.reset")}</button></main>;
+  if (recovery) return <main className="recovery-screen"><h1>{t("storage.recovery")}</h1><p>{error}</p><button className="button danger" onClick={() => { if (repository && window.confirm(t("common.resetConfirm"))) void repository.reset(createInitialState(todayDate())).then((next) => { setState(next); setStorageMode(repository.mode); setError(""); setRecovery(false); void go("dashboard"); }).catch((caught: unknown) => setError(errorText(caught))); }}>{t("common.reset")}</button></main>;
   if (!state || !repository) return <main className="recovery-screen" role="alert">{error}</main>;
-  if (!state.userName) return <SignIn state={state} onSignIn={signIn} onLanguage={updateLanguage} t={t} error={error} />;
+  if (!state.isSignedIn || !state.userName) return <SignIn state={state} storageMode={storageMode} onSignIn={signIn} onLanguage={updateLanguage} t={t} error={error} />;
   if (!workspace || !aggregate) return <main className="recovery-screen" role="alert">{t("storage.recovery")}</main>;
 
   const activeWorkspace = workspace;
@@ -963,12 +966,14 @@ export default function App() {
 
 function SignIn({
   state,
+  storageMode,
   onSignIn,
   onLanguage,
   t,
   error,
 }: {
   state: AppState;
+  storageMode: StorageMode;
   onSignIn: (name: string, region: Region, mode: WorkspaceMode) => Promise<void>;
   onLanguage: (language: Language) => Promise<void>;
   t: (key: TranslationKey) => string;
@@ -980,11 +985,12 @@ function SignIn({
   return <main className="signin-screen">
     <form className="signin-card" onSubmit={(event) => { event.preventDefault(); if (name.trim()) void onSignIn(name, region, mode); }}>
       <div className="brand-mark">b.</div><p className="eyebrow">{t("app.name")}</p><h1>{t("signin.title")}</h1>
-      <label>{t("signin.name")}<input autoFocus required value={name} onChange={(event) => setName(event.target.value)} /></label>
+      <label>{t("signin.name")}<input autoFocus required readOnly={state.userName !== null} value={name} onChange={(event) => setName(event.target.value)} /></label>
       <label>{t("workspace.region")}<select value={region} disabled={state.hasSignedIn} onChange={(event) => setRegion(event.target.value as Region)}><option value="CO">{t("workspace.colombia")}</option><option value="US">{t("workspace.us")}</option></select></label>
       {!state.hasSignedIn && <p className="small muted">{t("signin.regionNote")}</p>}
       <label>{t("signin.mode")}<select value={mode} onChange={(event) => setMode(event.target.value as WorkspaceMode)}><option value="personal">{t("workspace.personal")}</option><option value="business">{t("workspace.business")}</option></select></label>
       <p className="privacy-note">{t("signin.privacy")}</p>
+      {storageMode !== "indexeddb" && <div className={`storage-banner ${storageMode}`} role="status">{t(storageMode === "localstorage" ? "storage.localstorage" : "storage.memory")}</div>}
       {error && <p role="alert" className="field-error">{error}</p>}
       <button type="submit" className="button primary">{t("signin.continue")}</button>
       <label className="language-signin">{t("language.english")} / {t("language.spanish")}<select value={state.language} onChange={(event) => void onLanguage(event.target.value as Language)}><option value="en">English</option><option value="es">Español</option></select></label>

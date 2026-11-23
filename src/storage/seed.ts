@@ -1,6 +1,6 @@
 import type { Currency, IncomeEntry, Loan, Region, Workspace, WorkspaceMode } from "../domain/types";
 import { parseDateOnly } from "../domain/dates";
-import type { AppState } from "./model";
+import { CURRENT_SCHEMA_VERSION, type AppState } from "./model";
 
 function shiftDate(dateValue: string, days: number): string {
   const date = parseDateOnly(dateValue);
@@ -75,8 +75,9 @@ export function createInitialState(
 ): AppState {
   parseDateOnly(today);
   return {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     userName: null,
+    isSignedIn: false,
     hasSignedIn: false,
     activeMode: "personal",
     language: "en",
@@ -99,18 +100,7 @@ export function createInitialState(
 }
 
 export function resetState(
-  current: AppState,
   today = new Date().toISOString().slice(0, 10),
-  regions: Partial<Record<WorkspaceMode, Region>> = {
-    personal: current.workspaces.personal.region,
-    business: current.workspaces.business.region,
-  },
 ): AppState {
-  return {
-    ...createInitialState(today, regions),
-    userName: current.userName,
-    hasSignedIn: current.hasSignedIn,
-    activeMode: current.activeMode,
-    language: current.language,
-  };
+  return createInitialState(today);
 }

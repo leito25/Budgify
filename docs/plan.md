@@ -13,7 +13,7 @@ The repository has no application scaffold yet; it already contains project docu
 ### Documentation
 | File | Purpose |
 | --- | --- |
-| `docs/intent.md`, `docs/spec.md`, `docs/TechStack.md` *(existing)* | Unchanged, except `spec.md` gets the resolved decisions linked from its "Concerns" section. |
+| `docs/intent.md`, `docs/spec.md`, `docs/TechStack.md` *(existing)* | Product intent, requirements, and stack guidance, including the local profile and session behavior. |
 | `docs/decisions.md` | Decision record resolving the 8 open concerns in the spec (Phase 0). Source of truth for engine rules. |
 | `docs/plan.md` *(existing)* | This file. |
 | `docs/Status.md` *(existing)* | Record completed phases and current project status. |
@@ -54,7 +54,7 @@ The repository has no application scaffold yet; it already contains project docu
 | `src/storage/fallback.ts` | localStorage fallback and in-memory mode with visible flag. |
 | `src/storage/repository.ts` | Typed reads/writes per workspace; write failures surface to the UI. |
 | `src/storage/seed.ts` | Seed data generated relative to "today" (incl. one overdue loan). |
-| `src/session/session.ts` | Name-only local sign-in, persisted session. |
+| `src/session/session.ts` | Name-only local profile and separately persisted session state. |
 | `src/data/reference-rates.ts` | Static dated presets for Colombia and US. |
 
 ### i18n
@@ -123,12 +123,14 @@ Each implementation phase ends with its relevant checks passing and should be re
 
 ### Phase 3: Persistence, session, workspaces, seed
 - Storage wrapper with versioning, fallback, failure surfacing, and migration/backup.
-- Name-only session; two workspaces with separate data; region choice and lock.
+- Save one name-only local profile separately from session state. Restore an active session and data after restart; signing out preserves the name and data and returns to entry with the saved name.
+- Migrate existing state without losing workspace data; if a legacy signed-out state has no saved name, request one without reseeding.
+- Two workspaces with separate data; region choice and lock.
 - Seed generator relative to today, per workspace: 3-month grocery installments, microloans, business equipment loans across industries, income, upcoming dates, at least one overdue installment, and (for Small Business) a state that exercises the limit.
-- Reset: confirm, clear, reseed.
+- Reset: warn that the name and data will be erased; on confirmation clear the profile and session, reseed, and return to first-use name entry. Cancellation leaves everything intact.
 
 ### Phase 4: Shell and i18n
-- Navigation rail, mode and language switches, storage-status banner, sign-in screen.
+- Navigation rail, mode and language switches, storage-status banner, sign-in screen showing the saved name after sign-out, and reset warning. Explain that the profile is local and is not authentication.
 - All strings go through the i18n layer from the first screen onward (retrofitting is the costly path); parity check in CI.
 
 ### Phase 5: Loans & Installments
@@ -164,6 +166,7 @@ Each implementation phase ends with its relevant checks passing and should be re
 
 ### Phase 12: End-to-end and CI completion
 - Full Playwright suite on desktop and mobile projects, console-error assertions, CI green.
+- Verify profile, data, sign-out, restart, reset, migration, and storage-failure cases in the Proof section; distinguish browser viewport coverage from native Electron/Capacitor testing.
 
 ### Phase 13: Docs, release, validation
 - README, reset documentation, Electron and Capacitor wrap docs.
@@ -274,6 +277,8 @@ Pricing sources checked 2026-11-23: [GitHub Copilot models and pricing](https://
 
 **Storage, session, seed, i18n**
 - Repository round-trip; separate data per mode; failed write is reported and not marked saved; fallback chain; migration success, migration failure with backup; reset restores seed.
+- Profile name and session persist separately; sign-out preserves the name and data; reset clears profile and session, restores seed, and cancellation leaves state unchanged.
+- Migrate existing signed-in state with its name and data intact; preserve legacy signed-out data and request a name when none is available. Report failed profile or reset writes without claiming success.
 - Seed contains every required record kind, including an overdue installment, relative to a fixed clock.
 - Reference presets have source, date, and disclaimer; staleness check.
 - English and Spanish key parity; no missing keys; user-entered strings untouched by formatting.
@@ -285,7 +290,7 @@ Pricing sources checked 2026-11-23: [GitHub Copilot models and pricing](https://
 
 ### End-to-end tests (Playwright; desktop and mobile projects; fixed clock; each asserts no console errors)
 
-1. **Sign-in:** name-only sign-in, session persists after reload, sign-out works, no password field, notice shown.
+1. **Sign-in:** name-only first-use entry, active session and name survive reload and browser restart; sign-out shows the saved name, returning restores existing data; no password or registration, local-only and no-authentication notice shown.
 2. **Start state:** after sign-in the dashboard and every other screen show seeded data.
 3. **Loans CRUD:** add (grocery, 3 installments), search, sort by each heading, edit, delete with confirmation text about balance and schedule impact, cancel keeps the record; persists after reload.
 4. **Loan form validation:** errors tied to inputs; invalid dates and negative rates rejected; payment and total interest preview correct.
@@ -295,7 +300,7 @@ Pricing sources checked 2026-11-23: [GitHub Copilot models and pricing](https://
 8. **Business limit:** saving a 4th active loan is blocked with the simulated upgrade prompt; accepting unlocks; switching mode instead works; a paid-off loan frees a slot.
 9. **Calendar:** shows upcoming, grace, overdue, and paid without color alone; mark paid updates schedule, remaining principal, status, and dashboard immediately; overdue example shows simple late interest; keyboard operation.
 10. **Dashboard:** cards, charts, upcoming dates, and tips match the data; chart text equivalents present; update after payment.
-11. **Persistence and reset:** all changes survive reload and browser restart; reset asks for confirmation, then restores sample data; IndexedDB-unavailable mode shows the banner and does not claim success.
+11. **Persistence and reset:** create data, sign out, reload, and return with the saved name and unchanged data; cancellation of reset preserves both. Confirming reset warns about and clears the name and user data, restores sample data, and displays first-use name entry. Storage failure is visible and does not claim success; memory-only mode warns data will not persist.
 12. **Language:** toggle covers every screen including validation, charts, helper, game, reports; preference persists; user-entered text unchanged.
 13. **Reports:** CSV downloads with full schedule and translated headers for the active workspace; print view fits one page with totals.
 14. **Financial Quest:** complete a full scenario in both modes, see net-worth and buffer effects, leave and resume with progress intact, progress independent per mode.

@@ -1,6 +1,6 @@
 import { LocalStorageBackend, MemoryStorageBackend } from "./fallback";
 import { IndexedDbStorageBackend } from "./db";
-import type { AppState } from "./model";
+import { CURRENT_SCHEMA_VERSION, type AppState } from "./model";
 
 export type StorageMode = "indexeddb" | "localstorage" | "memory";
 
@@ -38,11 +38,9 @@ export interface BrowserRepositorySetup {
 }
 
 const STORAGE_KEY = "budgify-state";
-const CURRENT_SCHEMA_VERSION = 1;
-
-function isAppState(value: unknown): value is AppState {
+function isLegacyAppState(value: unknown): value is Omit<AppState, "isSignedIn"> {
   if (typeof value !== "object" || value === null) return false;
-  const state = value as Partial<AppState>;
+  const state = value as Partial<Omit<AppState, "isSignedIn">>;
   return typeof state.schemaVersion === "number"
     && (state.userName === null || typeof state.userName === "string")
     && typeof state.hasSignedIn === "boolean"
@@ -51,6 +49,19 @@ function isAppState(value: unknown): value is AppState {
     && typeof state.workspaces === "object"
     && state.workspaces !== null;
 }
+
+function isAppState(value: unknown): value is AppState {
+  if (!isLegacyAppState(value) || !("isSignedIn" in value)) return false;
+  return typeof value.isSignedIn === "boolean"
+    && (!value.isSignedIn || (typeof value.userName === "string" && value.userName.trim().length > 0));
+}
+
+const defaultMigrations: Record<number, Migration> = {
+  1: (data) => {
+    if (!isLegacyAppState(data)) throw new Error("Legacy app data has an invalid structure.");
+    return { ...data, isSignedIn: typeof data.userName === "string" && data.userName.trim().length > 0 };
+  },
+};
 
 function encode(state: AppState): string {
   return JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, data: state } satisfies StoredEnvelope);
@@ -83,6 +94,7 @@ export class StorageRepository {
         continue;
       }
       if (raw === null) continue;
+      this.activeBackend = backend;
 
       let envelope: unknown;
       try {
@@ -114,7 +126,7 @@ export class StorageRepository {
         }
         try {
           while (version < CURRENT_SCHEMA_VERSION) {
-            const migration = migrations[version];
+            const migration = migrations[version] ?? defaultMigrations[version];
             if (!migration) throw new Error(`No migration is defined for schema ${version}.`);
             data = migration(data);
             version += 1;
@@ -150,6 +162,16 @@ export class StorageRepository {
   }
 
   async reset(initialState: AppState): Promise<AppState> {
+    try {
+      for (const backend of this.backends) {
+        for (let version = 0; version < CURRENT_SCHEMA_VERSION; version += 1) {
+          await backend.remove(`${this.key}-backup-v${version}`);
+        }
+        if (backend !== this.activeBackend) await backend.remove(this.key);
+      }
+    } catch (error) {
+      throw new StorageWriteError(`Could not clear previous app data: ${errorMessage(error)}`);
+    }
     await this.persist(initialState);
     return this.state as AppState;
   }
@@ -157,7 +179,8 @@ export class StorageRepository {
   private async persist(nextState: AppState): Promise<void> {
     const serialized = encode(nextState);
     let lastError: unknown;
-    for (const backend of this.backends) {
+    const backends = this.activeBackend ? [this.activeBackend] : this.backends;
+    for (const backend of backends) {
       try {
         await backend.set(this.key, serialized);
         this.activeBackend = backend;
