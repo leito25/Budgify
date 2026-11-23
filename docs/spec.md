@@ -1,8 +1,8 @@
 # Budgify MVP specification
 
-## Concerns and decisions needed
+## Concerns and resolved decisions
 
-The intent defines the product scope, but these details must be resolved before implementing or certifying the financial engine:
+The intent defines the product scope, but These details are resolved for the simulator in [docs/decisions.md](./decisions.md):
 
 1. **Interest and rounding:** Define the simple-interest repayment model, compound amortization convention, monthly and effective annual rate conversions, US APR treatment, and monetary precision and rounding. Bank-specific terms may differ; estimates must not be presented as contractual amounts.
 2. **Late payments:** Define the penalty rate's period, the balance it applies to, the day-count basis, and whether interest starts on the due date or after the grace period. Specify whether an unpaid installment is labeled overdue during the grace period, and how the accrued penalty is recorded when it is paid.
@@ -13,7 +13,7 @@ The intent defines the product scope, but these details must be resolved before 
 7. **Offline persistence:** Decide the recovery behavior when IndexedDB is unavailable, storage is full or cleared, or schema migration fails. A local sign-in is not authentication, and browser data can be lost or accessed by others using the same browser profile.
 8. **Delivery validation:** Name the intended supported browsers and mobile viewport sizes, define the non-technical demo procedure, and confirm GitHub Pages deployment permissions.
 
-These are implementation decisions, not changes to the intent. They require agreement before behavior that depends on them is finalized.
+The decisions are implementation assumptions for this MVP, not lender terms or changes to the product intent. All calculated amounts remain estimates.
 
 ## Purpose and scope
 

@@ -1,0 +1,33 @@
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("../assets/fonts/instrument-sans.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("../assets/fonts/instrument-serif.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../assets/fonts/jetbrains-mono.ttf") format("truetype");
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  --ink: #073B4C;
+  --muted: #506A73;
+  --background: #F0F4F5;
+  --panel: #FFFFFF;
+  --sea-green: #06D6A0;
+  --marigold: #FFC145;
+  --coral: #F78C6B;
+  --cerulean: #118AB2;
+  --raspberry: #EF476F;
+  --sea-mist: #CDD8DB;
+  --radius-panel: 20px;
+  --shadow-soft: 0 12px 40px rgb(7 59 76 / 7%);
+}
