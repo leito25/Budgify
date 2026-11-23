@@ -69,6 +69,7 @@ The protected core is financial calculations, loan and income CRUD, the payment 
 
 ### Information architecture and visual language
 
+- **Selected dashboard direction:** Use the [Planning Board mockup](./mockups/03-board.html) as Budgify's approved dashboard and loan-pipeline visual direction. Treat its compact navigation rail, dashboard summary cards, attention notice, three-column loan-status board, and upcoming-payment cards as the reference when implementing the app. The other mockups are exploratory alternatives; they do not supersede this selection.
 - Use a responsive navigation shell for Dashboard, Loans & Installments, Income & Balance, Payment Calendar, and Financial Quest, with accessible mode and language switches.
 - Follow the [brand skill](../.github/skills/brand/SKILL.md). Ship light mode only: use a `#F0F4F5` background with white, rounded, borderless panels. Use Midnight `#073B4C` for text and Sea Green `#06D6A0` as the primary accent.
 - Use Marigold `#FFC145` and Coral `#F78C6B` for the second and third chart series, then Cerulean `#118AB2` and Raspberry `#EF476F`. Darken bright colors for small text on light surfaces; do not rely on color alone for meaning.

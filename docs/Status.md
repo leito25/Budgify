@@ -8,3 +8,6 @@
 - Drafted the MVP requirements and design specification, including concerns requiring decisions.
 - Converted the brand guidelines into a project skill for user-facing work.
 - Created three dashboard and loan-pipeline mockup concepts with screenshots.
+- Selected the Planning Board mockup as the approved dashboard and loan-pipeline design direction.
+- Added a phased MVP implementation plan with file scope, risks, and unit/end-to-end proof.
+- Added per-phase agentic-AI token, credit, and USD estimates plus an actual-usage ledger to `docs/plan.md`.
