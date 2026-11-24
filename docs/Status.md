@@ -6,6 +6,7 @@
 - Added guidance for concise responses and Playwright MCP testing.
 - Recorded MVP interview decisions in `docs/changes/mvp/intent.md` and aligned `docs/TechStack.md`.
 - Reorganized change intent and plan under `docs/changes/mvp/`, and made `docs/spec.md` the description of the product as it exists today.
+- Linked `docs/STANDARDS.md` from `AGENTS.md` and added it to the review checklist.
 - Drafted the MVP requirements and design specification, including concerns requiring decisions.
 - Converted the brand guidelines into a project skill for user-facing work.
 - Created three dashboard and loan-pipeline mockup concepts with screenshots.

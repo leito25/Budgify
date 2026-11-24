@@ -1,6 +1,7 @@
 # Agent instructions
 
 - Read `docs/spec.md` first. It is the product description and specification for Budgify as it exists today.
+- Follow `docs/STANDARDS.md` when making code changes.
 - Each change has a folder at `docs/changes/<branch name>/` containing its `intent.md` and `plan.md`. Read only the folder for the current change; do not read other change folders.
 - Run `npm test` for the complete unit and end-to-end test suites. It must fail if either suite fails. Install the Playwright browsers with `npx playwright install` before the first run; Linux may also require `npx playwright install-deps`.
 - `npm run test:unit` and `npm run test:e2e` run the individual suites.
