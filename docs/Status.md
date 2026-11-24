@@ -25,6 +25,7 @@
 - Compared the dashboard with the selected Planning Board mockup; aligned summary cards, six-month timeline, loan lanes, and payment-date cards while retaining accessible details and mobile reflow.
 - Dashboard validation: 42 unit tests and 62 browser tests pass; 2 Chromium-only restart cases are skipped in Firefox and WebKit. Build and translation parity pass.
 - Added a review policy covering bugs, security, and conformance to the specification and plan.
+- Added full and quick quality checks, formatting, complexity limits, type and secret scanning, and 80% unit coverage thresholds across the app.
 
 ## Remaining release validation
 

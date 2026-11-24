@@ -6,8 +6,8 @@
 @media print {
   html,
   body {
-    background: #FFFFFF !important;
-    color: #073B4C !important;
+    background: #ffffff !important;
+    color: #073b4c !important;
   }
 
   .navigation-rail,
@@ -50,7 +50,7 @@
     padding: 10px;
     border-radius: 8px;
     box-shadow: none;
-    background: #F0F4F5;
+    background: #f0f4f5;
   }
 
   .print-summary .metric-value {

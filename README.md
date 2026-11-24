@@ -4,7 +4,7 @@ Budgify is an offline-capable debt and cash-flow planner for Personal and Small 
 
 ## Run locally
 
-Requirements: Node.js 22 or newer and npm. Run these commands from the `Budgify` project directory, where `package.json` and `package-lock.json` are located.
+Requirements: Node.js 22.12 or newer in a supported Node release line and npm. Quality checks also require Python, [Ruff](https://docs.astral.sh/ruff/installation/), [ty](https://docs.astral.sh/ty/installation/), and [Gitleaks](https://github.com/gitleaks/gitleaks#installing) on PATH. Run these commands from the `Budgify` project directory, where `package.json` and `package-lock.json` are located.
 
 ```sh
 npm ci
@@ -19,11 +19,12 @@ The target browsers are current Chrome, Edge, Firefox, and Safari. Automated bro
 
 ```sh
 npm run check:i18n
-npm run typecheck
 npx playwright install
-npm test
+npm run check
 npm run build
 ```
+
+`npm run check` runs formatting, lint, complexity, type and working-tree secret checks, then `npm test`. `npm run check:quick` omits end-to-end tests. Unit coverage must reach 80% for statements, branches, functions and lines across `src`. Use `npm run format` to fix formatting. The Python checks currently find no files because the app has no backend. Gitleaks scans the working tree, respecting Git ignores including `.env`.
 
 `npm test` runs all unit tests followed by all Playwright end-to-end projects and fails if either suite fails. For individual suites, use `npm run test:unit` or `npm run test:e2e`. Install Playwright browsers once after installing dependencies; Linux may also require `npx playwright install-deps`.
 

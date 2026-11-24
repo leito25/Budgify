@@ -17,16 +17,33 @@ describe("Financial Quest", () => {
 
     const start = createGameProgress("personal");
     const choices = ["pay_high_interest", "avoid_installment", "build_buffer"];
-    expect(choices.reduce((progress, choice) => applyGameChoice(progress, choice), start))
-      .toEqual(choices.reduce((progress, choice) => applyGameChoice(progress, choice), start));
+    expect(
+      choices.reduce(
+        (progress, choice) => applyGameChoice(progress, choice),
+        start,
+      ),
+    ).toEqual(
+      choices.reduce(
+        (progress, choice) => applyGameChoice(progress, choice),
+        start,
+      ),
+    );
   });
 
   it("rewards high-interest debt focus and emergency savings, and penalizes an unnecessary installment", () => {
     const start = createGameProgress("personal");
-    expect(getGameScore(applyGameChoice(start, "pay_high_interest"))).toBeGreaterThan(getGameScore(start));
-    expect(getGameScore(applyGameChoice(start, "avoid_installment"))).toBeGreaterThan(getGameScore(start));
-    expect(getGameScore(applyGameChoice(start, "unnecessary_installment"))).toBeLessThan(getGameScore(start));
-    expect(applyGameChoice(start, "build_buffer").bufferMinor).toBeGreaterThan(start.bufferMinor);
+    expect(
+      getGameScore(applyGameChoice(start, "pay_high_interest")),
+    ).toBeGreaterThan(getGameScore(start));
+    expect(
+      getGameScore(applyGameChoice(start, "avoid_installment")),
+    ).toBeGreaterThan(getGameScore(start));
+    expect(
+      getGameScore(applyGameChoice(start, "unnecessary_installment")),
+    ).toBeLessThan(getGameScore(start));
+    expect(applyGameChoice(start, "build_buffer").bufferMinor).toBeGreaterThan(
+      start.bufferMinor,
+    );
   });
 
   it("advances months and records challenge completion deterministically", () => {

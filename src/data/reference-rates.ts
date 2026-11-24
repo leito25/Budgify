@@ -20,8 +20,10 @@ export const referenceRates: ReferenceRate[] = [
     rate: 0.2834,
     rateBasis: "effective_annual",
     asOf: "2026-11-01",
-    source: "Superintendencia Financiera de Colombia, November 2026 certification",
-    sourceUrl: "https://www.superfinanciera.gov.co/publicaciones/10829/sala-de-prensacomunicados-de-prensa-interes-bancario-corriente-10829/",
+    source:
+      "Superintendencia Financiera de Colombia, November 2026 certification",
+    sourceUrl:
+      "https://www.superfinanciera.gov.co/publicaciones/10829/sala-de-prensacomunicados-de-prensa-interes-bancario-corriente-10829/",
     disclaimer: "Reference only, verify with your bank.",
   },
   {

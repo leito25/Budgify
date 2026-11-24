@@ -27,7 +27,9 @@ describe("domain validation", () => {
       field: "rate",
       code: "must_be_nonnegative",
     });
-    expect(validateLoan({ ...validLoan, firstDueDate: "2026-02-30" })).toContainEqual({
+    expect(
+      validateLoan({ ...validLoan, firstDueDate: "2026-02-30" }),
+    ).toContainEqual({
       field: "firstDueDate",
       code: "invalid_date",
     });
@@ -42,12 +44,20 @@ describe("domain validation", () => {
       field: "status",
       code: "derived_only",
     });
-    expect(validateIncome({ source: "", amountMinor: -1, dateReceived: "bad", frequency: "yearly" }))
-      .toEqual(expect.arrayContaining([
+    expect(
+      validateIncome({
+        source: "",
+        amountMinor: -1,
+        dateReceived: "bad",
+        frequency: "yearly",
+      }),
+    ).toEqual(
+      expect.arrayContaining([
         { field: "source", code: "required" },
         { field: "amountMinor", code: "must_be_positive" },
         { field: "dateReceived", code: "invalid_date" },
         { field: "frequency", code: "invalid_value" },
-      ]));
+      ]),
+    );
   });
 });

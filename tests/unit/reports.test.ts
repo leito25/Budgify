@@ -4,7 +4,10 @@ import { makeLoan } from "../fixtures/loans";
 
 describe("amortization reports", () => {
   it("exports the complete schedule with translated headers and untouched user text", () => {
-    const loan = makeLoan({ name: 'Cafe, "North"', description: "Do not translate: ñ" });
+    const loan = makeLoan({
+      name: 'Cafe, "North"',
+      description: "Do not translate: ñ",
+    });
     const english = buildAmortizationCsv([loan], [], "USD", "en");
     const spanish = buildAmortizationCsv([loan], [], "USD", "es");
 

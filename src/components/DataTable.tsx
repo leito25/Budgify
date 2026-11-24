@@ -36,15 +36,22 @@ export function DataTable<Row>({
 
   const visibleRows = useMemo(() => {
     const filtered = rows.filter((row) =>
-      searchText(row).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+      searchText(row)
+        .toLocaleLowerCase()
+        .includes(query.trim().toLocaleLowerCase()),
+    );
     const column = columns.find((item) => item.key === sortKey);
     if (!column) return filtered;
     return [...filtered].sort((a, b) => {
       const left = column.value(a);
       const right = column.value(b);
-      const order = typeof left === "number" && typeof right === "number"
-        ? left - right
-        : String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: "base" });
+      const order =
+        typeof left === "number" && typeof right === "number"
+          ? left - right
+          : String(left).localeCompare(String(right), undefined, {
+              numeric: true,
+              sensitivity: "base",
+            });
       return ascending ? order : -order;
     });
   }, [ascending, columns, query, rows, searchText, sortKey]);
@@ -61,7 +68,11 @@ export function DataTable<Row>({
     <div className="table-section">
       <label className="search-field">
         <span>{searchLabel}</span>
-        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
       </label>
       <div className="table-scroll">
         <table>
@@ -71,25 +82,50 @@ export function DataTable<Row>({
                 <th
                   key={column.key}
                   scope="col"
-                  aria-sort={sortKey === column.key ? ascending ? "ascending" : "descending" : "none"}
+                  aria-sort={
+                    sortKey === column.key
+                      ? ascending
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
                 >
-                  <button type="button" className="sort-button" onClick={() => toggleSort(column.key)}>
+                  <button
+                    type="button"
+                    className="sort-button"
+                    onClick={() => toggleSort(column.key)}
+                  >
                     {column.label}
-                    <span aria-hidden="true">{sortKey === column.key ? ascending ? " ↑" : " ↓" : ""}</span>
+                    <span aria-hidden="true">
+                      {sortKey === column.key ? (ascending ? " ↑" : " ↓") : ""}
+                    </span>
                   </button>
                 </th>
               ))}
-              {actions && <th scope="col"><span className="sr-only">{actionsLabel}</span></th>}
+              {actions && (
+                <th scope="col">
+                  <span className="sr-only">{actionsLabel}</span>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 && (
-              <tr><td colSpan={columns.length + Number(Boolean(actions))} className="empty-cell">{emptyText}</td></tr>
+              <tr>
+                <td
+                  colSpan={columns.length + Number(Boolean(actions))}
+                  className="empty-cell"
+                >
+                  {emptyText}
+                </td>
+              </tr>
             )}
             {visibleRows.map((row) => (
               <tr key={rowKey(row)}>
                 {columns.map((column) => (
-                  <td key={column.key}>{column.render ? column.render(row) : column.value(row)}</td>
+                  <td key={column.key}>
+                    {column.render ? column.render(row) : column.value(row)}
+                  </td>
                 ))}
                 {actions && <td className="row-actions">{actions(row)}</td>}
               </tr>
@@ -97,7 +133,9 @@ export function DataTable<Row>({
           </tbody>
         </table>
       </div>
-      <p className="table-count" aria-live="polite">{visibleRows.length} {recordsLabel}</p>
+      <p className="table-count" aria-live="polite">
+        {visibleRows.length} {recordsLabel}
+      </p>
     </div>
   );
 }

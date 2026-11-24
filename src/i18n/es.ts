@@ -12,9 +12,11 @@ export const es = {
   "signin.title": "Te damos la bienvenida a Budgify",
   "signin.name": "Tu nombre",
   "signin.mode": "Espacio de trabajo",
-  "signin.regionNote": "Elige la región de este espacio. Quedará fija cuando existan registros.",
+  "signin.regionNote":
+    "Elige la región de este espacio. Quedará fija cuando existan registros.",
   "signin.continue": "Continuar",
-  "signin.privacy": "Este acceso local no es autenticación. Cualquier persona que use este perfil del navegador o instalación de la aplicación puede ver tus datos. Los datos no se sincronizan y pueden perderse si se borra el almacenamiento.",
+  "signin.privacy":
+    "Este acceso local no es autenticación. Cualquier persona que use este perfil del navegador o instalación de la aplicación puede ver tus datos. Los datos no se sincronizan y pueden perderse si se borra el almacenamiento.",
   "workspace.personal": "Personal",
   "workspace.business": "Pequeña empresa",
   "workspace.region": "Región",
@@ -24,9 +26,12 @@ export const es = {
   "language.spanish": "Español",
   "storage.indexeddb": "Guardado en este dispositivo",
   "storage.localstorage": "Usando el almacenamiento alternativo del navegador",
-  "storage.memory": "Solo en memoria. Los cambios se perderán al cerrar esta página.",
-  "storage.writeError": "No se pudo guardar el cambio. Los últimos datos guardados siguen disponibles.",
-  "storage.recovery": "No se pudieron actualizar los datos. Exporta una copia o restablece la aplicación.",
+  "storage.memory":
+    "Solo en memoria. Los cambios se perderán al cerrar esta página.",
+  "storage.writeError":
+    "No se pudo guardar el cambio. Los últimos datos guardados siguen disponibles.",
+  "storage.recovery":
+    "No se pudieron actualizar los datos. Exporta una copia o restablece la aplicación.",
   "dashboard.title": "Tu dinero, en movimiento.",
   "dashboard.netBalance": "Balance neto mensual",
   "dashboard.balanceDescription": "Ingresos recurrentes menos pagos mensuales",
@@ -71,15 +76,19 @@ export const es = {
   "loans.schedule": "Calendario",
   "loans.search": "Buscar préstamos",
   "loans.delete": "Eliminar préstamo",
-  "loans.deleteConfirm": "Al eliminarlo, se borran el calendario y el historial de pagos. Cuotas pagadas: {count}.",
-  "loans.businessLimit": "La pequeña empresa permite tres préstamos activos. La mejora es simulada; no se cobra ningún pago.",
+  "loans.deleteConfirm":
+    "Al eliminarlo, se borran el calendario y el historial de pagos. Cuotas pagadas: {count}.",
+  "loans.businessLimit":
+    "La pequeña empresa permite tres préstamos activos. La mejora es simulada; no se cobra ningún pago.",
   "loans.upgrade": "Aceptar mejora simulada",
   "loans.rateHelper": "Ayuda de tasas",
   "loans.rateDisclaimer": "Solo como referencia; verifica con tu banco.",
   "loans.rateColombia": "Referencia para crédito de consumo y ordinario",
   "loans.rateUnitedStates": "APR promedio de cuentas de tarjeta con intereses",
-  "loans.helperText": "Pide a tu entidad por escrito la base de la tasa, el calendario, los cargos y las condiciones por mora.",
-  "loans.lockedTerms": "Los términos financieros no se pueden cambiar después de pagar una cuota. El nombre y la descripción siguen editables.",
+  "loans.helperText":
+    "Pide a tu entidad por escrito la base de la tasa, el calendario, los cargos y las condiciones por mora.",
+  "loans.lockedTerms":
+    "Los términos financieros no se pueden cambiar después de pagar una cuota. El nombre y la descripción siguen editables.",
   "income.title": "Ingresos y balance",
   "income.add": "Agregar ingreso",
   "income.source": "Fuente",
@@ -89,7 +98,8 @@ export const es = {
   "income.frequency": "Frecuencia",
   "income.recurring": "Recurrente",
   "income.oneTime": "Una sola vez",
-  "income.deleteConfirm": "¿Eliminar este ingreso? Se actualizarán el flujo mensual y el balance.",
+  "income.deleteConfirm":
+    "¿Eliminar este ingreso? Se actualizarán el flujo mensual y el balance.",
   "income.monthlyIncome": "Ingresos recurrentes mensuales",
   "income.oneTimeSnapshot": "Resumen de ingresos únicos",
   "income.debtToIncome": "Deuda sobre ingresos",
@@ -102,7 +112,8 @@ export const es = {
   "calendar.lateInterest": "Interés por mora estimado",
   "calendar.empty": "No hay pagos en este período.",
   "quest.title": "Reto financiero",
-  "quest.notice": "Solo valores simulados. El reto es independiente de tus datos.",
+  "quest.notice":
+    "Solo valores simulados. El reto es independiente de tus datos.",
   "quest.month": "Mes {month} de {total}",
   "quest.cash": "Efectivo virtual",
   "quest.debt": "Deuda virtual",
@@ -127,7 +138,8 @@ export const es = {
   "common.delete": "Eliminar",
   "common.confirm": "Confirmar",
   "common.reset": "Restablecer datos de ejemplo",
-  "common.resetConfirm": "Esto borrará tu nombre guardado y los datos locales, y restaurará los registros de ejemplo. ¿Continuar?",
+  "common.resetConfirm":
+    "Esto borrará tu nombre guardado y los datos locales, y restaurará los registros de ejemplo. ¿Continuar?",
   "common.empty": "Aún no hay registros.",
   "common.required": "Este campo es obligatorio.",
   "common.invalidDate": "Ingresa una fecha válida.",

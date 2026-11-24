@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { IDBFactory } from "fake-indexeddb";
+import { IndexedDbStorageBackend } from "../../src/storage/db";
 import {
   RecoveryRequiredError,
   StorageRepository,
@@ -37,6 +39,29 @@ class TestBackend implements StorageBackend {
 }
 
 describe("storage repository", () => {
+  it("round-trips and removes IndexedDB records", async () => {
+    const previous = globalThis.indexedDB;
+    Object.defineProperty(globalThis, "indexedDB", {
+      value: new IDBFactory(),
+      configurable: true,
+    });
+    try {
+      const backend = await IndexedDbStorageBackend.open("unit-storage");
+      expect(await backend.get("missing")).toBeNull();
+      await backend.set("profile", "saved");
+      expect(await backend.get("profile")).toBe("saved");
+      await backend.remove("profile");
+      expect(await backend.get("profile")).toBeNull();
+    } finally {
+      if (previous === undefined)
+        delete (globalThis as { indexedDB?: IDBFactory }).indexedDB;
+      else
+        Object.defineProperty(globalThis, "indexedDB", {
+          value: previous,
+          configurable: true,
+        });
+    }
+  });
   it("round-trips separate workspaces and persists only after a successful write", async () => {
     const backend = new TestBackend("indexeddb");
     const repository = new StorageRepository([backend]);
@@ -53,10 +78,12 @@ describe("storage repository", () => {
     expect(loaded.workspaces.business.income).not.toEqual([]);
 
     backend.failWrites = true;
-    await expect(repository.update((state) => {
-      state.userName = "Not saved";
-      return state;
-    })).rejects.toBeInstanceOf(StorageWriteError);
+    await expect(
+      repository.update((state) => {
+        state.userName = "Not saved";
+        return state;
+      }),
+    ).rejects.toBeInstanceOf(StorageWriteError);
     expect(repository.getState()?.userName).toBeNull();
     expect(repository.getState()?.isSignedIn).toBe(false);
   });
@@ -72,7 +99,11 @@ describe("storage repository", () => {
 
     const brokenLocal = new TestBackend("localstorage");
     brokenLocal.failWrites = true;
-    const memoryRepository = new StorageRepository([broken, brokenLocal, memory]);
+    const memoryRepository = new StorageRepository([
+      broken,
+      brokenLocal,
+      memory,
+    ]);
     await memoryRepository.load(createInitialState("2026-11-23"));
     expect(memoryRepository.mode).toBe("memory");
     expect(repository.warnings.length).toBeGreaterThan(0);
@@ -84,9 +115,14 @@ describe("storage repository", () => {
     const repository = new StorageRepository([primary, fallback]);
     await repository.load(createInitialState("2026-11-23"));
     primary.failWrites = true;
-    await expect(repository.update((state) => ({
-      ...state, userName: "Alex", hasSignedIn: true, isSignedIn: true,
-    }))).rejects.toBeInstanceOf(StorageWriteError);
+    await expect(
+      repository.update((state) => ({
+        ...state,
+        userName: "Alex",
+        hasSignedIn: true,
+        isSignedIn: true,
+      })),
+    ).rejects.toBeInstanceOf(StorageWriteError);
     expect(repository.getState()?.userName).toBeNull();
     expect(await fallback.get("budgify-state")).toBeNull();
   });
@@ -98,7 +134,9 @@ describe("storage repository", () => {
     await backend.set("budgify-state", original);
     const repository = new StorageRepository([backend]);
 
-    await expect(repository.load(oldState)).rejects.toBeInstanceOf(RecoveryRequiredError);
+    await expect(repository.load(oldState)).rejects.toBeInstanceOf(
+      RecoveryRequiredError,
+    );
     expect(await backend.get("budgify-state")).toBe(original);
     expect(await backend.get("budgify-state-backup-v0")).toBe(original);
   });
@@ -106,32 +144,44 @@ describe("storage repository", () => {
   it.each([
     { name: "Alex", active: true },
     { name: null, active: false },
-  ])("migrates a legacy profile with name $name without changing its data", async ({ name, active }) => {
-    const backend = new TestBackend("indexeddb");
-    const { isSignedIn: _isSignedIn, ...legacy } = createInitialState("2026-11-23");
-    legacy.schemaVersion = 1;
-    legacy.userName = name;
-    legacy.hasSignedIn = true;
-    legacy.workspaces.personal.income[0].source = "Saved income";
-    const original = JSON.stringify({ schemaVersion: 1, data: legacy });
-    await backend.set("budgify-state", original);
+  ])(
+    "migrates a legacy profile with name $name without changing its data",
+    async ({ name, active }) => {
+      const backend = new TestBackend("indexeddb");
+      const { isSignedIn: _isSignedIn, ...legacy } =
+        createInitialState("2026-11-23");
+      expect(_isSignedIn).toBe(false);
+      legacy.schemaVersion = 1;
+      legacy.userName = name;
+      legacy.hasSignedIn = true;
+      legacy.workspaces.personal.income[0].source = "Saved income";
+      const original = JSON.stringify({ schemaVersion: 1, data: legacy });
+      await backend.set("budgify-state", original);
 
-    const repository = new StorageRepository([backend]);
-    const loaded = await repository.load(createInitialState("2026-11-23"));
-    expect(loaded.userName).toBe(name);
-    expect(loaded.isSignedIn).toBe(active);
-    expect(loaded.hasSignedIn).toBe(true);
-    expect(loaded.workspaces).toEqual(legacy.workspaces);
-    expect(await backend.get("budgify-state-backup-v1")).toBe(original);
-    expect((await new StorageRepository([backend]).load(createInitialState("2026-11-23")))).toEqual(loaded);
-  });
+      const repository = new StorageRepository([backend]);
+      const loaded = await repository.load(createInitialState("2026-11-23"));
+      expect(loaded.userName).toBe(name);
+      expect(loaded.isSignedIn).toBe(active);
+      expect(loaded.hasSignedIn).toBe(true);
+      expect(loaded.workspaces).toEqual(legacy.workspaces);
+      expect(await backend.get("budgify-state-backup-v1")).toBe(original);
+      expect(
+        await new StorageRepository([backend]).load(
+          createInitialState("2026-11-23"),
+        ),
+      ).toEqual(loaded);
+    },
+  );
 
   it("preserves a profile and its data when the session is ended and restored", async () => {
     const backend = new TestBackend("indexeddb");
     const repository = new StorageRepository([backend]);
     await repository.load(createInitialState("2026-11-23"));
     await repository.update((state) => ({
-      ...state, userName: "Alex", hasSignedIn: true, isSignedIn: true,
+      ...state,
+      userName: "Alex",
+      hasSignedIn: true,
+      isSignedIn: true,
     }));
     await repository.update((state) => {
       state.workspaces.personal.income[0].source = "Saved income";
@@ -144,23 +194,33 @@ describe("storage repository", () => {
     expect(signedOut.userName).toBe("Alex");
     expect(signedOut.isSignedIn).toBe(false);
     expect(signedOut.workspaces.personal.income[0].source).toBe("Saved income");
-    const signedIn = await restored.update((state) => ({ ...state, isSignedIn: true }));
+    const signedIn = await restored.update((state) => ({
+      ...state,
+      isSignedIn: true,
+    }));
     expect(signedIn.workspaces).toEqual(signedOut.workspaces);
     const reset = await restored.reset(resetState("2026-11-23"));
     expect(reset.userName).toBeNull();
     expect(reset.isSignedIn).toBe(false);
     expect(reset.hasSignedIn).toBe(false);
-    expect(reset.workspaces).toEqual(createInitialState("2026-11-23").workspaces);
+    expect(reset.workspaces).toEqual(
+      createInitialState("2026-11-23").workspaces,
+    );
   });
 
   it("removes migration backups containing the old profile on reset", async () => {
     const backend = new TestBackend("indexeddb");
     const fallback = new TestBackend("localstorage");
-    const { isSignedIn: _isSignedIn, ...legacy } = createInitialState("2026-11-23");
+    const { isSignedIn: _isSignedIn, ...legacy } =
+      createInitialState("2026-11-23");
+    expect(_isSignedIn).toBe(false);
     legacy.schemaVersion = 1;
     legacy.userName = "Alex";
     legacy.hasSignedIn = true;
-    await backend.set("budgify-state", JSON.stringify({ schemaVersion: 1, data: legacy }));
+    await backend.set(
+      "budgify-state",
+      JSON.stringify({ schemaVersion: 1, data: legacy }),
+    );
     await fallback.set("budgify-state", "old profile");
     await fallback.set("budgify-state-backup-v1", "old backup");
     const repository = new StorageRepository([backend, fallback]);
@@ -183,7 +243,9 @@ describe("storage repository", () => {
     };
     await repository.load(initial);
     backend.failRemoves = true;
-    await expect(repository.reset(resetState("2026-11-23"))).rejects.toBeInstanceOf(StorageWriteError);
+    await expect(
+      repository.reset(resetState("2026-11-23")),
+    ).rejects.toBeInstanceOf(StorageWriteError);
     expect(repository.getState()).toEqual(initial);
   });
 
@@ -198,7 +260,9 @@ describe("storage repository", () => {
     };
     await repository.load(initial);
     backend.failWrites = true;
-    await expect(repository.reset(resetState("2026-11-23"))).rejects.toBeInstanceOf(StorageWriteError);
+    await expect(
+      repository.reset(resetState("2026-11-23")),
+    ).rejects.toBeInstanceOf(StorageWriteError);
     expect(repository.getState()).toEqual(initial);
   });
 });

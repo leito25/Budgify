@@ -9,7 +9,9 @@ import {
 describe("rate conversions", () => {
   it("converts monthly, effective annual, and nominal APR rates", () => {
     const monthly = 0.0125;
-    expect(annualEffectiveToMonthly(monthlyToEffectiveAnnual(monthly))).toBeCloseTo(monthly, 12);
+    expect(
+      annualEffectiveToMonthly(monthlyToEffectiveAnnual(monthly)),
+    ).toBeCloseTo(monthly, 12);
     expect(monthlyToApr(monthly)).toBeCloseTo(0.15, 12);
     expect(rateToMonthly(0.15, "apr")).toBeCloseTo(monthly, 12);
     expect(rateToMonthly(0.15, "effective_annual")).toBeCloseTo(

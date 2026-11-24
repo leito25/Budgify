@@ -22,7 +22,7 @@ export function estimateLateInterest(
   return {
     lateDays,
     penaltyMinor: roundHalfUp(
-      installment.amountMinor * penaltyRateAnnual * lateDays / 365,
+      (installment.amountMinor * penaltyRateAnnual * lateDays) / 365,
     ),
   };
 }
@@ -33,7 +33,11 @@ export function settleInstallment(
   paidDate: string,
   penaltyRateAnnual: number,
 ): Payment {
-  const { penaltyMinor } = estimateLateInterest(installment, penaltyRateAnnual, paidDate);
+  const { penaltyMinor } = estimateLateInterest(
+    installment,
+    penaltyRateAnnual,
+    paidDate,
+  );
   return {
     loanId,
     installmentIndex: installment.index,
