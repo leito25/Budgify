@@ -1,6 +1,6 @@
 # Budgify MVP: implementation plan
 
-Source documents: `docs/intent.md`, `docs/spec.md`, `docs/TechStack.md`. No code is written by this plan.
+Source documents: `docs/changes/mvp/intent.md`, `docs/spec.md`, `docs/TechStack.md`. No code is written by this plan.
 
 **Working stack (to confirm in Phase 0):** React + TypeScript + Vite, hash routing, IndexedDB via a thin storage wrapper (localStorage fallback), Vitest for unit tests, Playwright for end-to-end tests, plain CSS with brand tokens, locally bundled fonts, hand-built SVG charts (no network, no heavy chart dependency).
 
@@ -13,9 +13,9 @@ The repository has no application scaffold yet; it already contains project docu
 ### Documentation
 | File | Purpose |
 | --- | --- |
-| `docs/intent.md`, `docs/spec.md`, `docs/TechStack.md` *(existing)* | Product intent, requirements, and stack guidance, including the local profile and session behavior. |
+| `docs/changes/mvp/intent.md`, `docs/spec.md`, `docs/TechStack.md` *(existing)* | Product intent, product specification, and stack guidance, including the local profile and session behavior. |
 | `docs/decisions.md` | Decision record resolving the 8 open concerns in the spec (Phase 0). Source of truth for engine rules. |
-| `docs/plan.md` *(existing)* | This file. |
+| `docs/changes/mvp/plan.md` *(existing)* | This file. |
 | `docs/Status.md` *(existing)* | Record completed phases and current project status. |
 | `docs/rate-presets.md` | Sources, dates, and manual update process for reference rates. |
 | `docs/wrap-electron.md`, `docs/wrap-capacitor.md` | Documented (not shipped) wrapping steps. |
