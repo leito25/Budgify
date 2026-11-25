@@ -19,8 +19,14 @@ export function toMinorUnits(amount: number, currency: Currency): number {
 }
 
 export function distributeMinorUnits(total: number, count: number): number[] {
-  if (!Number.isSafeInteger(total) || !Number.isSafeInteger(count) || count < 1) {
-    throw new RangeError("A safe integer total and positive installment count are required.");
+  if (
+    !Number.isSafeInteger(total) ||
+    !Number.isSafeInteger(count) ||
+    count < 1
+  ) {
+    throw new RangeError(
+      "A safe integer total and positive installment count are required.",
+    );
   }
 
   const base = Math.trunc(total / count);

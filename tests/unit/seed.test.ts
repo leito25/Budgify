@@ -11,13 +11,27 @@ describe("seed data", () => {
 
     expect(personal.currency).toBe("USD");
     expect(business.currency).toBe("COP");
-    expect(personal.loans.some((loan) => loan.name.toLowerCase().includes("grocery"))).toBe(true);
-    expect(personal.income.some((entry) => entry.frequency === "one_time")).toBe(true);
+    expect(
+      personal.loans.some((loan) =>
+        loan.name.toLowerCase().includes("grocery"),
+      ),
+    ).toBe(true);
+    expect(
+      personal.income.some((entry) => entry.frequency === "one_time"),
+    ).toBe(true);
     expect(business.loans).toHaveLength(3);
-    expect(business.loans.every((loan) => loan.firstDueDate >= today)).toBe(true);
-    expect(aggregateWorkspace(personal.loans, [], personal.income, "USD", today).overdueCount)
-      .toBeGreaterThan(0);
-    expect(personal.loans.every((loan) => loan.firstDueDate < "2026-10-01"
-      || loan.firstDueDate > "2027-01-31")).toBe(false);
+    expect(business.loans.every((loan) => loan.firstDueDate >= today)).toBe(
+      true,
+    );
+    expect(
+      aggregateWorkspace(personal.loans, [], personal.income, "USD", today)
+        .overdueCount,
+    ).toBeGreaterThan(0);
+    expect(
+      personal.loans.every(
+        (loan) =>
+          loan.firstDueDate < "2026-10-01" || loan.firstDueDate > "2027-01-31",
+      ),
+    ).toBe(false);
   });
 });

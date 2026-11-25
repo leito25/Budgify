@@ -18,6 +18,8 @@ describe("money", () => {
     expect(roundHalfUp(2.5)).toBe(3);
     expect(roundHalfUp(-2.5)).toBe(-3);
     expect(distributeMinorUnits(100, 3)).toEqual([33, 33, 34]);
-    expect(distributeMinorUnits(1, 4).reduce((sum, value) => sum + value, 0)).toBe(1);
+    expect(
+      distributeMinorUnits(1, 4).reduce((sum, value) => sum + value, 0),
+    ).toBe(1);
   });
 });

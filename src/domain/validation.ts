@@ -3,11 +3,21 @@ import type { Loan } from "./types";
 
 export interface ValidationIssue {
   field: string;
-  code: "required" | "must_be_positive" | "must_be_positive_integer" | "must_be_nonnegative"
-    | "invalid_date" | "invalid_value" | "derived_only";
+  code:
+    | "required"
+    | "must_be_positive"
+    | "must_be_positive_integer"
+    | "must_be_nonnegative"
+    | "invalid_date"
+    | "invalid_value"
+    | "derived_only";
 }
 
 type LoanDraft = Partial<Loan> & { status?: unknown };
+
+function isNonnegativeNumber(value: unknown): boolean {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
 
 export function validateLoan(input: LoanDraft): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -21,25 +31,34 @@ export function validateLoan(input: LoanDraft): ValidationIssue[] {
   if (Object.prototype.hasOwnProperty.call(input, "status")) {
     issues.push({ field: "status", code: "derived_only" });
   }
-  if (typeof input.principalMinor !== "number" || !Number.isSafeInteger(input.principalMinor)
-    || input.principalMinor <= 0) {
+  if (
+    typeof input.principalMinor !== "number" ||
+    !Number.isSafeInteger(input.principalMinor) ||
+    input.principalMinor <= 0
+  ) {
     issues.push({ field: "principalMinor", code: "must_be_positive" });
   }
-  if (typeof input.termMonths !== "number" || !Number.isSafeInteger(input.termMonths)
-    || input.termMonths <= 0) {
+  if (
+    typeof input.termMonths !== "number" ||
+    !Number.isSafeInteger(input.termMonths) ||
+    input.termMonths <= 0
+  ) {
     issues.push({ field: "termMonths", code: "must_be_positive_integer" });
   }
-  if (typeof input.rate !== "number" || !Number.isFinite(input.rate) || input.rate < 0) {
+  if (!isNonnegativeNumber(input.rate)) {
     issues.push({ field: "rate", code: "must_be_nonnegative" });
   }
-  if (!["monthly_nominal", "effective_annual", "apr"].includes(String(input.rateBasis))) {
+  if (
+    !["monthly_nominal", "effective_annual", "apr"].includes(
+      String(input.rateBasis),
+    )
+  ) {
     issues.push({ field: "rateBasis", code: "invalid_value" });
   }
   if (input.interestType !== "simple" && input.interestType !== "compound") {
     issues.push({ field: "interestType", code: "invalid_value" });
   }
-  if (typeof input.penaltyRateAnnual !== "number" || !Number.isFinite(input.penaltyRateAnnual)
-    || input.penaltyRateAnnual < 0) {
+  if (!isNonnegativeNumber(input.penaltyRateAnnual)) {
     issues.push({ field: "penaltyRateAnnual", code: "must_be_nonnegative" });
   }
   if (!isValidDateOnly(input.firstDueDate)) {
@@ -55,8 +74,11 @@ export function validateIncome(input: IncomeDraft): ValidationIssue[] {
   if (typeof input.source !== "string" || input.source.trim() === "") {
     issues.push({ field: "source", code: "required" });
   }
-  if (typeof input.amountMinor !== "number" || !Number.isSafeInteger(input.amountMinor)
-    || input.amountMinor <= 0) {
+  if (
+    typeof input.amountMinor !== "number" ||
+    !Number.isSafeInteger(input.amountMinor) ||
+    input.amountMinor <= 0
+  ) {
     issues.push({ field: "amountMinor", code: "must_be_positive" });
   }
   if (input.frequency !== "one_time" && input.frequency !== "recurring") {

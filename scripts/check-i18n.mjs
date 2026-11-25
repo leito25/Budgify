@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 
 const root = new URL("../src/i18n/", import.meta.url);
 const files = ["en.ts", "es.ts"];

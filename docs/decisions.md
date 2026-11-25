@@ -1,6 +1,6 @@
 # Implementation decisions
 
-These decisions resolve the eight concerns in `docs/spec.md` for the MVP. They define simulator behavior, not lender terms or financial advice. Amounts and penalties are estimates.
+These decisions record the detailed financial and operational rules used by the MVP. They define simulator behavior, not lender terms or financial advice. Amounts and penalties are estimates.
 
 ## 1. Interest, conversions, and rounding
 

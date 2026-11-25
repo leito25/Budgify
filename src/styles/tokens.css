@@ -18,16 +18,16 @@
 
 :root {
   color-scheme: light;
-  --ink: #073B4C;
-  --muted: #506A73;
-  --background: #F0F4F5;
-  --panel: #FFFFFF;
-  --sea-green: #06D6A0;
-  --marigold: #FFC145;
-  --coral: #F78C6B;
-  --cerulean: #118AB2;
-  --raspberry: #EF476F;
-  --sea-mist: #CDD8DB;
+  --ink: #073b4c;
+  --muted: #506a73;
+  --background: #f0f4f5;
+  --panel: #ffffff;
+  --sea-green: #06d6a0;
+  --marigold: #ffc145;
+  --coral: #f78c6b;
+  --cerulean: #118ab2;
+  --raspberry: #ef476f;
+  --sea-mist: #cdd8db;
   --radius-panel: 20px;
   --shadow-soft: 0 12px 40px rgb(7 59 76 / 7%);
 }

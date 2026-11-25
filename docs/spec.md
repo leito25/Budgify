@@ -1,99 +1,56 @@
-# Budgify MVP specification
+# Budgify product specification
 
-## Concerns and resolved decisions
+## Purpose
 
-The intent defines the product scope, but These details are resolved for the simulator in [docs/decisions.md](./decisions.md):
+Individuals and small businesses often cannot see the true cost of loans, credit-card installments, or late payments, or understand how debt affects their cash flow. They also lack a safe, engaging way to practice financial decisions. Budgify addresses this by making loan schedules, costs, and financial choices understandable in a local, bilingual planner and learning game.
 
-1. **Interest and rounding:** Define the simple-interest repayment model, compound amortization convention, monthly and effective annual rate conversions, US APR treatment, and monetary precision and rounding. Bank-specific terms may differ; estimates must not be presented as contractual amounts.
-2. **Late payments:** Define the penalty rate's period, the balance it applies to, the day-count basis, and whether interest starts on the due date or after the grace period. Specify whether an unpaid installment is labeled overdue during the grace period, and how the accrued penalty is recorded when it is paid.
-3. **Schedule and edits:** Define month-end handling for dates such as January 31, the treatment of early or out-of-order payments, and what happens to existing payments when financial terms or the first due date are edited. Deleting a loan with paid installments also needs an explicit history policy.
-4. **Workspace region:** Specify how each profile selects its region, whether it can be changed after records exist, and how existing records and sample data are handled. Loan region and workspace currency must not allow mixed-currency totals.
-5. **Balances and reports:** Define the balance snapshot, treatment of one-time income and past or overdue obligations, the period for monthly debt obligations, and the zero-income debt-to-income display. Define how a potentially long payment schedule fits the one-page summary; the CSV can contain the complete schedule.
-6. **Reference rates:** Choose authoritative sources, dated values, and an update process for both regions. A static preset can become stale and must not imply that it is a current legal cap or bank offer.
-7. **Offline persistence:** Decide the recovery behavior when IndexedDB is unavailable, storage is full or cleared, or schema migration fails. A local sign-in is not authentication, and browser data can be lost or accessed by others using the same browser profile.
-8. **Delivery validation:** Name the intended supported browsers and mobile viewport sizes, define the non-technical demo procedure, and confirm GitHub Pages deployment permissions.
+## Product today
 
-The decisions are implementation assumptions for this MVP, not lender terms or changes to the product intent. All calculated amounts remain estimates.
+Budgify is a responsive, client-side web application for managing and learning about debt and cash flow. It supports Colombia (COP) and the United States (USD), with separate Personal and Small Business workspaces. Calculated amounts are estimates, not lender terms or financial advice.
 
-## Purpose and scope
+The application has five main areas:
 
-Budgify is an offline-capable, responsive web app that helps individuals and small businesses in Colombia and the United States understand debt, income, payment schedules, and financial choices. The MVP ships a static web app and documentation for later Electron and Capacitor wrapping; it does not ship working wrapper configurations.
+- **Dashboard:** summarizes active debt, principal and interest, monthly net balance, upcoming and overdue payments, and loan-based tips. It includes a principal-versus-interest chart, a monthly payment timeline, loan status overview, and upcoming-payment summary.
+- **Loans & Installments:** a searchable, sortable ledger for active and paid-off obligations, including bank loans, microloans, and installment purchases. Users can add, edit, or delete loans, review their schedules, and use the Rate Helper and static reference-rate presets.
+- **Income & Balance:** a searchable, sortable income ledger. Recurring income contributes to monthly cash flow and debt-to-income; one-time income appears separately in the balance snapshot.
+- **Payment Calendar:** shows scheduled payments and their upcoming, grace-period, overdue, or paid state. Users can settle an installment in full and see the resulting schedule and balances update.
+- **Financial Quest:** a guided resource-management game with Personal and Small Business scenarios, simulated decisions and challenges, progress, and a net-worth/emergency-buffer score.
 
-The protected core is financial calculations, loan and income CRUD, the payment calendar, local persistence, and automated tests. Game depth and chart polish may be simplified if scope must be reduced.
+Tables support search, sortable columns, create/edit/delete actions, and confirmation before deletion. The application provides English and Spanish UI text, keeps user-entered text as entered, and supports responsive desktop and mobile layouts.
 
-## Requirements
+## Accounts and workspaces
 
-### Session and workspaces
+- The app uses one local, name-only profile and a simulated session. There is no password or account authentication.
+- Personal and Small Business modes have separate local data. Each workspace selects Colombia or the United States and uses that region's currency; currencies are not converted or combined.
+- Small Business blocks creation of a fourth active loan unless the user accepts a simulated membership upgrade. Paid-off loans do not count toward the limit. No real payment is collected.
+- A workspace's region cannot be changed while it contains loans or income; reset that workspace first.
 
-- On first use, ask for a name and save one local profile and its simulated session. Restore the name and session after a reload or app restart unless the user signed out. Do not require registration or a password.
-- Signing out returns to the entry screen but preserves the saved name and all workspace data. Show the saved name when the user returns and let them continue with it; signing out does not reset or create a separate profile.
-- The name is not authentication: anyone using the same browser profile or app installation can access the data. Data is local to that storage context, not synced or recoverable across devices; clearing site/app data, private browsing, or memory-only storage can cause data loss.
-- Offer Personal and Small Business modes with separate local data sets. Switching modes changes the active data without merging it.
-- Each workspace has one region and its currency: Colombia uses COP and the US uses USD. Do not convert currencies or combine amounts across workspaces.
-- Personal mode has no stated loan limit. Small Business blocks saving a fourth active loan until a simulated membership upgrade is accepted or the user switches mode. Paid-off loans do not count.
-- Persist the simulated upgrade per applicable workspace and clearly label it as simulated; do not collect payment.
+## Financial behavior
 
-### Loans and installments
+- A loan records its principal, installment count, interest rate and basis, simple or compound interest type, penalty rate, and first payment date. The date entered is the first installment date.
+- The schedule is generated monthly from that date. Dates clamp to the end of shorter months while retaining the original day as the anchor.
+- Simple-interest loans distribute flat interest across installments. Compound-interest loans use a fixed-payment amortization schedule. Effective annual rates convert to monthly rates; US APR presets are treated as nominal annual rates. Currency rounding is applied per installment, with the last installment reconciling the remaining amount.
+- Payment and loan states are derived, not manually assigned. Payments settle an installment in full; early and out-of-order settlement is allowed. After a payment, the loan's financial terms and first payment date lock, while its name and description remain editable.
+- The five days after a due date are a grace period. Starting on day six, an unpaid installment accrues simple penalty interest at its annual nominal penalty rate, on that installment only, using actual late days over 365. The penalty does not compound or capitalize into principal. A settled payment records its payment details and penalty.
+- Monthly obligations include unpaid installments due in the current calendar month and overdue unpaid installments. If recurring income is zero, debt-to-income is shown as an em dash.
+- Financial calculation and schedule conventions are maintained in [decisions.md](./decisions.md).
 
-- Provide a searchable, sortable ledger of active and paid-off loans, with add, edit, and delete actions. Confirm deletion and explain its effect on the balance and payment schedule.
-- Capture name, optional description, lender region, principal, number of monthly installments, interest rate and its basis, simple or compound interest type, penalty rate, and first payment date. Validate required fields and reject invalid dates, nonpositive principal or installment counts, and negative rates.
-- Generate the monthly schedule from the first payment date. Show payment amount, principal, interest, total interest, remaining balance, due dates, and estimated penalties. Apply the agreed financial conventions above.
-- Derive Active, Paid, and Overdue from payment and date state; never accept a manually assigned status. Paid means all installments are settled.
-- The Rate Helper explains how to obtain actual rates and late-fee terms from a Colombian or US lender. Offer region-appropriate, static, dated quick-fill presets with the translated notice “reference only, verify with your bank.” Do not fetch rates at runtime.
+## Data, privacy, and operation
 
-### Income and dashboard
+- Data is stored locally in the browser: IndexedDB is preferred, with localStorage and memory-only fallbacks. The active storage mode is shown, and failed writes are reported rather than silently treated as durable.
+- Signing out preserves the saved name and workspace data. Reset requires confirmation, clears the saved name and local app data, restores sample records, and returns to name entry.
+- Local storage is not synced or recoverable across devices. Anyone using the same browser profile may access the data; clearing browser/app data, private browsing, or memory-only storage can cause data loss.
+- The app bundles its fonts, translations, and reference rates. There is no backend, bank connection, live rate fetching, or third-party payment service. An already-open page can work offline, but there is no service worker, so an offline first visit or reload is not guaranteed.
+- Sample workspaces include loans and installment purchases, income, upcoming payments, and an overdue example.
+- Users can export an amortization CSV with the complete schedule and print a one-page report with totals and the next five installments.
 
-- Provide a searchable, sortable income ledger with add, edit, and delete actions and an impact-aware delete confirmation. Capture source, optional description, amount, date received, and one-time or recurring frequency.
-- Use recurring income only for monthly cash flow and debt-to-income percentage. Show one-time income separately in the balance snapshot; do not add it to monthly income.
-- The dashboard shows active debt, principal versus interest, monthly net balance, upcoming and overdue dates, and actionable tips based on current loans. Include a principal-versus-interest chart, monthly payment timeline, and upcoming-payment summary.
-- Clearly label estimates, currency, dates, and empty states. Avoid dividing by zero when recurring income is absent.
+## Design and implementation
 
-### Payment calendar
+- The UI follows Budgify's light-mode visual identity, uses locally bundled Instrument Sans, Instrument Serif, and JetBrains Mono fonts, and adapts to mobile, tablet, and desktop sizes.
+- Navigation covers the five product areas, with workspace-mode and language controls. Core controls support keyboard use; statuses are not communicated by color alone.
+- The web app is built with React, TypeScript, and Vite. Financial and game rules are deterministic domain logic, separate from the UI; translations and local persistence are handled in dedicated layers. See [TechStack.md](./TechStack.md) for stack details.
+- The static web app is the shipped product and can be deployed to GitHub Pages. Electron and Capacitor wrapping instructions are documented, but working desktop or native wrapper configurations are not included.
 
-- Display scheduled installments on an interactive calendar, distinguishing upcoming dates, the five-day grace period, overdue payments, and paid installments without relying on color alone.
-- Allow a user to mark an installment paid in full; partial payments are out of scope. Immediately update the schedule, remaining principal, derived status, and dashboard.
-- After the five-day grace period, calculate late interest as simple interest at the loan's penalty rate, without compounding, subject to the decisions above.
+## Out of scope
 
-### Financial Quest
-
-- Provide one guided linear scenario per profile mode, lasting 6–12 simulated months, with multiple-choice decisions and 3–5 financial literacy challenges.
-- Track virtual cash, debt, completed challenges, and a net-worth/emergency-buffer score. Show the effect of each choice and persist progress independently per mode.
-- Use deterministic game rules and clearly distinguish simulated values from real workspace data.
-
-### Reports, language, and reset
-
-- Download an amortization CSV and offer a print-styled, one-page summary of loans, payments, and totals. Scope both to the active workspace and its currency. Translate generated headers and labels; preserve user-entered text as entered.
-- Provide an English/Spanish toggle covering all UI strings, validation, charts, helper content, game content, and report labels. Preserve user-entered text and persist the preference.
-- Seed realistic data on first use: credit card installments, personal microloans, business equipment loans, income, upcoming payments, and at least one overdue example. Dates must remain useful when the seed is created.
-- Provide an in-app reset that warns that the saved name and local app data will be erased. On confirmation, clear the profile and session, restore sample data, and return to the first-use name entry screen; cancellation changes nothing. Document the reset; do not silently discard existing data.
-
-## Design
-
-### Information architecture and visual language
-
-- **Selected dashboard direction:** Use the [Planning Board mockup](./mockups/03-board.html) as Budgify's approved dashboard and loan-pipeline visual direction. Treat its compact navigation rail, dashboard summary cards, attention notice, three-column loan-status board, and upcoming-payment cards as the reference when implementing the app. The other mockups are exploratory alternatives; they do not supersede this selection.
-- Use a responsive navigation shell for Dashboard, Loans & Installments, Income & Balance, Payment Calendar, and Financial Quest, with accessible mode and language switches.
-- Follow the [brand skill](../.github/skills/brand/SKILL.md). Ship light mode only: use a `#F0F4F5` background with white, rounded, borderless panels. Use Midnight `#073B4C` for text and Sea Green `#06D6A0` as the primary accent.
-- Use Marigold `#FFC145` and Coral `#F78C6B` for the second and third chart series, then Cerulean `#118AB2` and Raspberry `#EF476F`. Darken bright colors for small text on light surfaces; do not rely on color alone for meaning.
-- Bundle Instrument Sans for headings and body, Instrument Serif for accents, and JetBrains Mono for numbers and identifiers. Avoid one-edge panel borders and excessive gradients. Use short, plain labels and show currency with monetary values.
-- Support keyboard navigation and visible focus for navigation, tables, dialogs, calendar, and game choices. Label controls, associate errors with inputs, and provide accessible chart equivalents. Reflow content for mobile without hiding core actions.
-
-### Architecture and data
-
-- Build a client-side component-based SPA with TypeScript, static assets, relative asset paths, and hash or equivalent client-side routing compatible with GitHub Pages. Select concrete framework and tooling during implementation within [TechStack.md](./TechStack.md).
-- Separate presentation, translation, persistence, and deterministic financial/game domain logic. The UI displays derived values rather than storing manually assigned statuses.
-- Store versioned local data in IndexedDB through a structured storage layer, with the documented localStorage fallback/flags. Report storage and migration failures visibly; never report an unsaved change as successful.
-- Store the local profile name separately from session state so signing out cannot erase the name or workspace data. Preserve existing saved data during migration; if a legacy signed-out state has no name, ask for one without reseeding or deleting its data. Separate workspace records by profile mode and region/currency; store loans and their payment state, income entries, upgrade state, and game progress. Store enough payment information to reproduce settled amounts once late-fee and edit policies are agreed.
-- Derive schedules, loan status, calendar entries, dashboard aggregates, and report totals from the same domain rules. Update dependent views immediately after successful writes and retain data across refreshes and restarts.
-- Bundle application assets, translations, reference data, and fonts locally. The app must work without network access after initial setup; there is no backend, bank integration, or runtime rate service.
-
-### Quality and delivery
-
-- Document one cross-platform local start command and offline prerequisites, an in-app reset, and future Electron/Capacitor build and wrap steps. Deploy the static web build to GitHub Pages.
-- Unit-test financial calculations and game logic, including zero rates, rate conversions, rounding, month boundaries, grace-period boundaries, settled payments, and representative game decisions after the open rules are decided.
-- Run automated Playwright or equivalent end-to-end checks in CI on desktop and mobile viewports. Cover sign-in, both workspaces and the business limit, CRUD and delete confirmation, calendar payment, persistence/reset, language switching, CSV/print output, and a complete game scenario. Check for browser console errors.
-- Verify the live GitHub Pages deployment and observe a non-technical user complete the sign-in-to-report flow without assistance.
-
-## Exclusions
-
-No cloud accounts or server, live bank APIs or rates, real payments or memberships, dark mode, AI chat, external notifications, currency conversion or mixed-currency totals, partial payments, manual loan status, or working native wrapper configurations.
+Budgify does not provide cloud accounts or synchronization, bank connections, live interest rates, real payment processing or memberships, partial payments, manual loan-status editing, mixed-currency totals, dark mode, AI chat, or external notifications. Native Electron and Capacitor applications are not shipped.

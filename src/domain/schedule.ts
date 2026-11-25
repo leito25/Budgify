@@ -3,14 +3,19 @@ import { parseDateOnly } from "./dates";
 import { rateToMonthly } from "./rates";
 import type { Currency, Installment, Loan } from "./types";
 
-export function addMonthsClamped(dateValue: string, monthOffset: number): string {
+export function addMonthsClamped(
+  dateValue: string,
+  monthOffset: number,
+): string {
   const date = parseDateOnly(dateValue);
   if (!Number.isSafeInteger(monthOffset)) {
     throw new RangeError("Month offset must be an integer.");
   }
 
   const originalDay = date.getUTCDate();
-  const targetMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + monthOffset, 1));
+  const targetMonth = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + monthOffset, 1),
+  );
   const lastDay = new Date(
     Date.UTC(targetMonth.getUTCFullYear(), targetMonth.getUTCMonth() + 1, 0),
   ).getUTCDate();
@@ -18,9 +23,16 @@ export function addMonthsClamped(dateValue: string, monthOffset: number): string
   return targetMonth.toISOString().slice(0, 10);
 }
 
-export function generateSchedule(loan: Loan, _currency: Currency): Installment[] {
+export function generateSchedule(
+  loan: Loan,
+  currency: Currency,
+): Installment[] {
+  // Amounts are already in minor units; retain the currency argument for callers.
+  void currency;
   if (!Number.isSafeInteger(loan.principalMinor) || loan.principalMinor <= 0) {
-    throw new RangeError("Principal must be a positive integer number of minor units.");
+    throw new RangeError(
+      "Principal must be a positive integer number of minor units.",
+    );
   }
   if (!Number.isSafeInteger(loan.termMonths) || loan.termMonths <= 0) {
     throw new RangeError("Installment count must be a positive integer.");
@@ -32,21 +44,26 @@ export function generateSchedule(loan: Loan, _currency: Currency): Installment[]
     throw new RangeError("Penalty rate must be finite and nonnegative.");
   }
 
-  const principalParts = loan.interestType === "simple" && monthlyRate > 0
-    ? distributeMinorUnits(loan.principalMinor, loan.termMonths)
-    : [];
-  const simpleInterestParts = loan.interestType === "simple" && monthlyRate > 0
-    ? distributeMinorUnits(
-      roundHalfUp(loan.principalMinor * monthlyRate * loan.termMonths),
-      loan.termMonths,
-    )
-    : [];
+  const principalParts =
+    loan.interestType === "simple" && monthlyRate > 0
+      ? distributeMinorUnits(loan.principalMinor, loan.termMonths)
+      : [];
+  const simpleInterestParts =
+    loan.interestType === "simple" && monthlyRate > 0
+      ? distributeMinorUnits(
+          roundHalfUp(loan.principalMinor * monthlyRate * loan.termMonths),
+          loan.termMonths,
+        )
+      : [];
 
   let remaining = loan.principalMinor;
-  const regularPaymentMinor = monthlyRate === 0
-    ? 0
-    : loan.principalMinor * monthlyRate * (1 + monthlyRate) ** loan.termMonths
-      / ((1 + monthlyRate) ** loan.termMonths - 1);
+  const regularPaymentMinor =
+    monthlyRate === 0
+      ? 0
+      : (loan.principalMinor *
+          monthlyRate *
+          (1 + monthlyRate) ** loan.termMonths) /
+        ((1 + monthlyRate) ** loan.termMonths - 1);
   const roundedRegularPayment = roundHalfUp(regularPaymentMinor);
 
   return Array.from({ length: loan.termMonths }, (_, offset) => {
@@ -55,16 +72,20 @@ export function generateSchedule(loan: Loan, _currency: Currency): Installment[]
     let interestMinor: number;
 
     if (monthlyRate === 0) {
-      principalMinor = distributeMinorUnits(loan.principalMinor, loan.termMonths)[offset];
+      principalMinor = distributeMinorUnits(
+        loan.principalMinor,
+        loan.termMonths,
+      )[offset];
       interestMinor = 0;
     } else if (loan.interestType === "simple") {
       principalMinor = principalParts[offset];
       interestMinor = simpleInterestParts[offset];
     } else {
       interestMinor = roundHalfUp(remaining * monthlyRate);
-      principalMinor = index === loan.termMonths
-        ? remaining
-        : Math.min(remaining, roundedRegularPayment - interestMinor);
+      principalMinor =
+        index === loan.termMonths
+          ? remaining
+          : Math.min(remaining, roundedRegularPayment - interestMinor);
     }
 
     const amountMinor = principalMinor + interestMinor;

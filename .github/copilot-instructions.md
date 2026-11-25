@@ -6,7 +6,8 @@ Be concise with responses and documentation
 
 ## Where to find things
 
-- `docs/intent.md`: What we are building
+- Read `docs/spec.md` first for the product as it exists today.
+- Read only the current change's `docs/changes/<branch name>/` folder, which contains that change's `intent.md` and `plan.md`.
 - `docs/TechStack.md`: The stack
 - `.github/skills/brand/SKILL.md`: Brand guidelines for user-facing work
 - `docs/Status.md`: What's done so far

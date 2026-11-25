@@ -4,7 +4,9 @@
 - Added the `commit-last-changes` skill for updating status, committing changes, and pushing them to GitHub.
 - Documented the MVP intent, proposed tech stack, and brand guidelines.
 - Added guidance for concise responses and Playwright MCP testing.
-- Recorded MVP interview decisions in `docs/intent.md` and aligned `docs/TechStack.md`.
+- Recorded MVP interview decisions in `docs/changes/mvp/intent.md` and aligned `docs/TechStack.md`.
+- Reorganized change intent and plan under `docs/changes/mvp/`, and made `docs/spec.md` the description of the product as it exists today.
+- Linked `docs/STANDARDS.md` from `AGENTS.md` and added it to the review checklist.
 - Drafted the MVP requirements and design specification, including concerns requiring decisions.
 - Converted the brand guidelines into a project skill for user-facing work.
 - Created three dashboard and loan-pipeline mockup concepts with screenshots.
@@ -23,6 +25,7 @@
 - Compared the dashboard with the selected Planning Board mockup; aligned summary cards, six-month timeline, loan lanes, and payment-date cards while retaining accessible details and mobile reflow.
 - Dashboard validation: 42 unit tests and 62 browser tests pass; 2 Chromium-only restart cases are skipped in Firefox and WebKit. Build and translation parity pass.
 - Added a review policy covering bugs, security, and conformance to the specification and plan.
+- Added full and quick quality checks, formatting, complexity limits, type and secret scanning, and 80% unit coverage thresholds across the app.
 
 ## Remaining release validation
 

@@ -18,7 +18,11 @@ export function createGameScenario(mode: WorkspaceMode): GameScenario {
   return {
     mode,
     months: 6,
-    challenges: [`${mode}-challenge-2`, `${mode}-challenge-4`, `${mode}-challenge-6`],
+    challenges: [
+      `${mode}-challenge-2`,
+      `${mode}-challenge-4`,
+      `${mode}-challenge-6`,
+    ],
     choiceIds: [...CHOICE_IDS],
   };
 }
@@ -36,7 +40,10 @@ export function createGameProgress(mode: WorkspaceMode): GameProgress {
   };
 }
 
-export function applyGameChoice(progress: GameProgress, choiceId: string): GameProgress {
+export function applyGameChoice(
+  progress: GameProgress,
+  choiceId: string,
+): GameProgress {
   if (!CHOICE_IDS.includes(choiceId)) {
     throw new RangeError(`Unknown quest choice: ${choiceId}`);
   }
@@ -44,7 +51,11 @@ export function applyGameChoice(progress: GameProgress, choiceId: string): GameP
     throw new RangeError("This quest scenario is already complete.");
   }
 
-  const next = { ...progress, month: progress.month + 1, decisions: [...progress.decisions, choiceId] };
+  const next = {
+    ...progress,
+    month: progress.month + 1,
+    decisions: [...progress.decisions, choiceId],
+  };
   switch (choiceId) {
     case "pay_high_interest":
       next.cashMinor = Math.max(0, next.cashMinor - 100_000);
@@ -64,15 +75,24 @@ export function applyGameChoice(progress: GameProgress, choiceId: string): GameP
       break;
   }
 
-  const completedChallenge = createGameScenario(progress.mode).challenges
-    .find((challenge) => challenge.endsWith(`-${progress.month}`));
-  if (completedChallenge && !next.completedChallengeIds.includes(completedChallenge)) {
+  const completedChallenge = createGameScenario(progress.mode).challenges.find(
+    (challenge) => challenge.endsWith(`-${progress.month}`),
+  );
+  if (
+    completedChallenge &&
+    !next.completedChallengeIds.includes(completedChallenge)
+  ) {
     next.completedChallengeIds.push(completedChallenge);
   }
   return next;
 }
 
 export function getGameScore(progress: GameProgress): number {
-  return progress.cashMinor + progress.bufferMinor - progress.debtMinor
-    + progress.interestAvoidedMinor + Math.round(progress.bufferMinor * 0.25);
+  return (
+    progress.cashMinor +
+    progress.bufferMinor -
+    progress.debtMinor +
+    progress.interestAvoidedMinor +
+    Math.round(progress.bufferMinor * 0.25)
+  );
 }

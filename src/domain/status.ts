@@ -23,8 +23,12 @@ export function deriveLoanStatus(
   payments: Payment[],
   asOfDate: string,
 ): LoanStatus {
-  if (schedule.length > 0 && schedule.every((row) =>
-    payments.some((payment) => payment.installmentIndex === row.index))) {
+  if (
+    schedule.length > 0 &&
+    schedule.every((row) =>
+      payments.some((payment) => payment.installmentIndex === row.index),
+    )
+  ) {
     return "Paid";
   }
 
@@ -32,7 +36,12 @@ export function deriveLoanStatus(
     payments.map((payment) => [payment.installmentIndex, payment.paidDate]),
   );
   const statuses = schedule.map((row) =>
-    deriveInstallmentStatus(row.dueDate, paymentByInstallment.get(row.index), asOfDate));
+    deriveInstallmentStatus(
+      row.dueDate,
+      paymentByInstallment.get(row.index),
+      asOfDate,
+    ),
+  );
   if (statuses.includes("Overdue")) return "Overdue";
   if (statuses.includes("In grace")) return "In grace";
   return "Active";

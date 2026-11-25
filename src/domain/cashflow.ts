@@ -47,9 +47,10 @@ export function calculateCashflow(
     recurringIncomeMinor,
     oneTimeIncomeMinor,
     monthlyNetBalanceMinor: recurringIncomeMinor - monthlyObligationsMinor,
-    debtToIncomePercent: recurringIncomeMinor === 0
-      ? null
-      : monthlyObligationsMinor / recurringIncomeMinor * 100,
+    debtToIncomePercent:
+      recurringIncomeMinor === 0
+        ? null
+        : (monthlyObligationsMinor / recurringIncomeMinor) * 100,
   };
 }
 export function buildCalendarEntries(
@@ -59,23 +60,37 @@ export function buildCalendarEntries(
   asOfDate: string,
 ): CalendarEntry[] {
   parseDateOnly(asOfDate);
-  return loans.flatMap((loan) => {
-    const loanPayments = payments.filter((payment) => payment.loanId === loan.id);
-    const paymentMap = new Map(loanPayments.map((payment) => [payment.installmentIndex, payment]));
-    return generateSchedule(loan, currency).map((installment) => {
-      const payment = paymentMap.get(installment.index);
-      return {
-        loanId: loan.id,
-        loanName: loan.name,
-        installment,
-        status: deriveInstallmentStatus(installment.dueDate, payment?.paidDate, asOfDate),
-        lateInterestMinor: payment
-          ? payment.penaltyMinor
-          : estimateLateInterest(installment, loan.penaltyRateAnnual, asOfDate).penaltyMinor,
-        paidDate: payment?.paidDate,
-      };
-    });
-  }).sort((a, b) => a.installment.dueDate.localeCompare(b.installment.dueDate));
+  return loans
+    .flatMap((loan) => {
+      const loanPayments = payments.filter(
+        (payment) => payment.loanId === loan.id,
+      );
+      const paymentMap = new Map(
+        loanPayments.map((payment) => [payment.installmentIndex, payment]),
+      );
+      return generateSchedule(loan, currency).map((installment) => {
+        const payment = paymentMap.get(installment.index);
+        return {
+          loanId: loan.id,
+          loanName: loan.name,
+          installment,
+          status: deriveInstallmentStatus(
+            installment.dueDate,
+            payment?.paidDate,
+            asOfDate,
+          ),
+          lateInterestMinor: payment
+            ? payment.penaltyMinor
+            : estimateLateInterest(
+                installment,
+                loan.penaltyRateAnnual,
+                asOfDate,
+              ).penaltyMinor,
+          paidDate: payment?.paidDate,
+        };
+      });
+    })
+    .sort((a, b) => a.installment.dueDate.localeCompare(b.installment.dueDate));
 }
 
 export function calculateMonthlyObligations(
@@ -85,16 +100,23 @@ export function calculateMonthlyObligations(
   asOfDate: string,
 ): MonthlyObligations {
   const monthPrefix = asOfDate.slice(0, 7);
-  const entries = buildCalendarEntries(loans, payments, currency, asOfDate)
-    .filter((entry) => {
-      if (entry.status === "Paid") return false;
-      const dueDate = entry.installment.dueDate;
-      const overdue = daysBetween(dueDate, asOfDate) > 5;
-      return overdue || dueDate.slice(0, 7) === monthPrefix;
-    });
+  const entries = buildCalendarEntries(
+    loans,
+    payments,
+    currency,
+    asOfDate,
+  ).filter((entry) => {
+    if (entry.status === "Paid") return false;
+    const dueDate = entry.installment.dueDate;
+    const overdue = daysBetween(dueDate, asOfDate) > 5;
+    return overdue || dueDate.slice(0, 7) === monthPrefix;
+  });
 
   return {
-    amountMinor: entries.reduce((sum, entry) => sum + entry.installment.amountMinor, 0),
+    amountMinor: entries.reduce(
+      (sum, entry) => sum + entry.installment.amountMinor,
+      0,
+    ),
     installments: entries,
   };
 }

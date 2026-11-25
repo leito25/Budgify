@@ -12,9 +12,11 @@ export const en = {
   "signin.title": "Welcome to Budgify",
   "signin.name": "Your name",
   "signin.mode": "Workspace",
-  "signin.regionNote": "Choose a region for this workspace. It stays fixed once records exist.",
+  "signin.regionNote":
+    "Choose a region for this workspace. It stays fixed once records exist.",
   "signin.continue": "Continue",
-  "signin.privacy": "This local sign-in is not authentication. Anyone using this browser profile or app installation can see your data. Data is not synced and can be lost if storage is cleared.",
+  "signin.privacy":
+    "This local sign-in is not authentication. Anyone using this browser profile or app installation can see your data. Data is not synced and can be lost if storage is cleared.",
   "workspace.personal": "Personal",
   "workspace.business": "Small Business",
   "workspace.region": "Region",
@@ -24,9 +26,12 @@ export const en = {
   "language.spanish": "Spanish",
   "storage.indexeddb": "Saved on this device",
   "storage.localstorage": "Using browser fallback storage",
-  "storage.memory": "Memory-only mode. Changes will be lost when this page closes.",
-  "storage.writeError": "Your change could not be saved. The previous saved data is still available.",
-  "storage.recovery": "Saved data could not be updated. Export a backup or reset the app to recover.",
+  "storage.memory":
+    "Memory-only mode. Changes will be lost when this page closes.",
+  "storage.writeError":
+    "Your change could not be saved. The previous saved data is still available.",
+  "storage.recovery":
+    "Saved data could not be updated. Export a backup or reset the app to recover.",
   "dashboard.title": "Your money, in motion.",
   "dashboard.netBalance": "Monthly net balance",
   "dashboard.balanceDescription": "Recurring income less monthly payments",
@@ -71,15 +76,20 @@ export const en = {
   "loans.schedule": "Schedule",
   "loans.search": "Search loans",
   "loans.delete": "Delete loan",
-  "loans.deleteConfirm": "Deleting this loan removes its schedule and payment history. Paid installments: {count}.",
-  "loans.businessLimit": "Small Business has a three-active-loan limit. Upgrade is simulated; no payment is collected.",
+  "loans.deleteConfirm":
+    "Deleting this loan removes its schedule and payment history. Paid installments: {count}.",
+  "loans.businessLimit":
+    "Small Business has a three-active-loan limit. Upgrade is simulated; no payment is collected.",
   "loans.upgrade": "Accept simulated upgrade",
   "loans.rateHelper": "Rate Helper",
   "loans.rateDisclaimer": "Reference only, verify with your bank.",
   "loans.rateColombia": "Consumer and ordinary credit reference",
-  "loans.rateUnitedStates": "Credit-card accounts assessed interest, average APR",
-  "loans.helperText": "Ask your lender for the rate basis, payment schedule, fees, and late-payment terms in writing.",
-  "loans.lockedTerms": "Financial terms cannot change after an installment is paid. Name and description remain editable.",
+  "loans.rateUnitedStates":
+    "Credit-card accounts assessed interest, average APR",
+  "loans.helperText":
+    "Ask your lender for the rate basis, payment schedule, fees, and late-payment terms in writing.",
+  "loans.lockedTerms":
+    "Financial terms cannot change after an installment is paid. Name and description remain editable.",
   "income.title": "Income & Balance",
   "income.add": "Add income",
   "income.source": "Source",
@@ -89,7 +99,8 @@ export const en = {
   "income.frequency": "Frequency",
   "income.recurring": "Recurring",
   "income.oneTime": "One time",
-  "income.deleteConfirm": "Delete this income entry? Monthly cash flow and the balance snapshot will update.",
+  "income.deleteConfirm":
+    "Delete this income entry? Monthly cash flow and the balance snapshot will update.",
   "income.monthlyIncome": "Monthly recurring income",
   "income.oneTimeSnapshot": "One-time income snapshot",
   "income.debtToIncome": "Debt-to-income",
@@ -102,7 +113,8 @@ export const en = {
   "calendar.lateInterest": "Estimated late interest",
   "calendar.empty": "No payments due in this period.",
   "quest.title": "Financial Quest",
-  "quest.notice": "Simulated values only. Quest data is separate from your workspace.",
+  "quest.notice":
+    "Simulated values only. Quest data is separate from your workspace.",
   "quest.month": "Month {month} of {total}",
   "quest.cash": "Virtual cash",
   "quest.debt": "Virtual debt",
@@ -127,7 +139,8 @@ export const en = {
   "common.delete": "Delete",
   "common.confirm": "Confirm",
   "common.reset": "Reset sample data",
-  "common.resetConfirm": "This erases your saved name and local app data, then restores the sample records. Continue?",
+  "common.resetConfirm":
+    "This erases your saved name and local app data, then restores the sample records. Continue?",
   "common.empty": "No records yet.",
   "common.required": "This field is required.",
   "common.invalidDate": "Enter a valid date.",

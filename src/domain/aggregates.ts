@@ -1,16 +1,11 @@
-import { calculateCashflow, calculateMonthlyObligations, buildCalendarEntries } from "./cashflow";
-import { deriveLoanStatus } from "./status";
-import type {
-  CalendarEntry,
-  CashflowSummary,
+import {
+  calculateCashflow,
+  calculateMonthlyObligations,
+  buildCalendarEntries,
 } from "./cashflow";
-import type {
-  Currency,
-  IncomeEntry,
-  Loan,
-  LoanStatus,
-  Payment,
-} from "./types";
+import { deriveLoanStatus } from "./status";
+import type { CalendarEntry, CashflowSummary } from "./cashflow";
+import type { Currency, IncomeEntry, Loan, LoanStatus, Payment } from "./types";
 
 export interface WorkspaceAggregate extends CashflowSummary {
   principalRemainingMinor: number;
@@ -35,18 +30,32 @@ export function aggregateWorkspace(
   currency: Currency,
   asOfDate: string,
 ): WorkspaceAggregate {
-  const calendarEntries = buildCalendarEntries(loans, payments, currency, asOfDate);
-  const obligations = calculateMonthlyObligations(loans, payments, currency, asOfDate);
+  const calendarEntries = buildCalendarEntries(
+    loans,
+    payments,
+    currency,
+    asOfDate,
+  );
+  const obligations = calculateMonthlyObligations(
+    loans,
+    payments,
+    currency,
+    asOfDate,
+  );
   let principalRemainingMinor = 0;
   let interestRemainingMinor = 0;
   const loanStatuses: Record<string, LoanStatus> = {};
 
   for (const loan of loans) {
-    const loanPayments = payments.filter((payment) => payment.loanId === loan.id);
+    const loanPayments = payments.filter(
+      (payment) => payment.loanId === loan.id,
+    );
     const schedule = calendarEntries
       .filter((entry) => entry.loanId === loan.id)
       .map((entry) => entry.installment);
-    const paidIndices = new Set(loanPayments.map((payment) => payment.installmentIndex));
+    const paidIndices = new Set(
+      loanPayments.map((payment) => payment.installmentIndex),
+    );
     for (const installment of schedule) {
       if (!paidIndices.has(installment.index)) {
         principalRemainingMinor += installment.principalMinor;
@@ -61,7 +70,8 @@ export function aggregateWorkspace(
     principalRemainingMinor,
     interestRemainingMinor,
     monthlyObligationsMinor: obligations.amountMinor,
-    overdueCount: calendarEntries.filter((entry) => entry.status === "Overdue").length,
+    overdueCount: calendarEntries.filter((entry) => entry.status === "Overdue")
+      .length,
     calendarEntries,
     loanStatuses,
   };
