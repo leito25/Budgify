@@ -182,12 +182,14 @@ test("profile and data survive a browser restart", async ({
   );
   if (!baseURL) throw new Error("A base URL is required.");
   const directory = await mkdtemp(join(tmpdir(), "budgify-profile-"));
+  const options = {
+    headless: true,
+    baseURL,
+    channel: process.env.PLAYWRIGHT_USE_CHROME ? "chrome" : undefined,
+  };
   let context: BrowserContext | undefined;
   try {
-    context = await chromium.launchPersistentContext(directory, {
-      headless: true,
-      baseURL,
-    });
+    context = await chromium.launchPersistentContext(directory, options);
     const page = await context.newPage();
     const firstErrors = watchBrowserErrors(page);
     await signIn(page);
@@ -202,10 +204,7 @@ test("profile and data survive a browser restart", async ({
     await context.close();
     context = undefined;
 
-    context = await chromium.launchPersistentContext(directory, {
-      headless: true,
-      baseURL,
-    });
+    context = await chromium.launchPersistentContext(directory, options);
     const reopened = await context.newPage();
     const reopenedErrors = watchBrowserErrors(reopened);
     await reopened.goto("/");
@@ -223,10 +222,7 @@ test("profile and data survive a browser restart", async ({
     await context.close();
     context = undefined;
 
-    context = await chromium.launchPersistentContext(directory, {
-      headless: true,
-      baseURL,
-    });
+    context = await chromium.launchPersistentContext(directory, options);
     const signedOut = await context.newPage();
     const signedOutErrors = watchBrowserErrors(signedOut);
     await signedOut.goto("/");
