@@ -30,6 +30,7 @@
 - Added Lefthook staged formatting and pre-commit checks, plus Copilot quick-check and `.env` edit safeguards.
 - Normalized the Copilot stop hook's working directory to avoid Windows Vitest runner failures.
 - Updated CI to scan for secrets first and run the full check with the runner's Chrome, Firefox and WebKit.
+- Prepared the dark-mode intent, clarifying WCAG AA contrast, existing mobile-layout support, and screenshot targets.
 
 ## Remaining release validation
 
