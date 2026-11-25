@@ -32,6 +32,7 @@
 - Updated CI to scan for secrets first and run the full check with the runner's Chrome, Firefox and WebKit.
 - Prepared the dark-mode intent, clarifying WCAG AA contrast, existing mobile-layout support, and screenshot targets.
 - Updated the product specification to describe the intended post-change dark-mode behavior and brand palette.
+- Added the phased dark-mode implementation plan with migration, accessibility, persistence, and screenshot proof.
 
 ## Remaining release validation
 
