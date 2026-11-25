@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { IndexedDbStorageBackend } from "../../src/storage/db";
 import {
@@ -86,6 +86,61 @@ describe("storage repository", () => {
     ).rejects.toBeInstanceOf(StorageWriteError);
     expect(repository.getState()?.userName).toBeNull();
     expect(repository.getState()?.isSignedIn).toBe(false);
+  });
+
+  it("serializes concurrent writes and resets without losing saved changes", async () => {
+    const backend = new TestBackend("indexeddb");
+    const repository = new StorageRepository([backend]);
+    const initial = createInitialState("2026-11-23");
+    await repository.load(initial);
+    let release = () => {};
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const set = backend.set.bind(backend);
+    vi.spyOn(backend, "set").mockImplementationOnce(async (key, value) => {
+      await blocked;
+      await set(key, value);
+    });
+
+    const theme = repository.update((state) => ({ ...state, theme: "dark" }));
+    const profile = repository.update((state) => ({
+      ...state,
+      userName: "Alex",
+      isSignedIn: true,
+    }));
+    release();
+    expect((await theme).theme).toBe("dark");
+    const saved = await profile;
+    expect(saved).toMatchObject({
+      theme: "dark",
+      userName: "Alex",
+      isSignedIn: true,
+    });
+    expect(await new StorageRepository([backend]).load(initial)).toEqual(saved);
+
+    const update = repository.update((state) => ({ ...state, theme: "light" }));
+    const reset = repository.reset(initial);
+    await update;
+    expect(await reset).toEqual(initial);
+    expect(await new StorageRepository([backend]).load(initial)).toEqual(
+      initial,
+    );
+  });
+
+  it("reports a failed queued write and allows a later write to use saved data", async () => {
+    const backend = new TestBackend("indexeddb");
+    const repository = new StorageRepository([backend]);
+    await repository.load(createInitialState("2026-11-23"));
+    vi.spyOn(backend, "set").mockRejectedValueOnce(new Error("write failed"));
+
+    const failed = repository.update((state) => ({ ...state, theme: "dark" }));
+    const saved = repository.update((state) => ({
+      ...state,
+      userName: "Alex",
+    }));
+    await expect(failed).rejects.toBeInstanceOf(StorageWriteError);
+    expect(await saved).toMatchObject({ theme: "light", userName: "Alex" });
   });
 
   it("falls back to localStorage and then memory when initial storage is unavailable", async () => {

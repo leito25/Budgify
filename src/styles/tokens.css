@@ -57,6 +57,7 @@
   --button-secondary-background: #ffffff;
   --button-secondary-ink: var(--ink);
   --control-background: #f0f4f5;
+  --control-border: transparent;
   --shadow-soft: 0 12px 40px rgb(7 59 76 / 7%);
   --shadow-dialog: 0 28px 90px rgb(7 59 76 / 20%);
   --chart-principal: #06d6a0;
@@ -116,6 +117,7 @@
   --button-secondary-background: #0d3944;
   --button-secondary-ink: #cdd8db;
   --control-background: #0a303b;
+  --control-border: #8fa9ae;
   --shadow-soft: 0 12px 40px rgb(0 0 0 / 24%);
   --shadow-dialog: 0 28px 90px rgb(0 0 0 / 70%);
   --chart-principal: #45e6bb;

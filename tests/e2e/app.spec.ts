@@ -73,6 +73,27 @@ async function getContrastPair(
     });
 }
 
+async function getControlBoundaryContrast(
+  page: Page,
+  control: string,
+  surface: string,
+): Promise<number> {
+  const border = await page
+    .locator(control)
+    .first()
+    .evaluate((element) => {
+      const shadow = getComputedStyle(element).boxShadow;
+      const color = shadow.match(/rgba?\([^)]+\)/)?.[0];
+      if (!color) throw new Error(`Missing control boundary: ${shadow}`);
+      return color;
+    });
+  const background = await page
+    .locator(surface)
+    .first()
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
+  return contrastRatio(border, background);
+}
+
 test("sign-in, language preference, and session persist without a password", async ({
   page,
 }) => {
@@ -141,6 +162,42 @@ test("theme toggle is available across sign-in and every product section", async
   await expect(
     page.getByRole("button", { name: "Use dark mode" }),
   ).toBeVisible();
+});
+
+test("keeps a theme change made immediately before sign-in", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const transaction = IDBDatabase.prototype.transaction;
+    IDBDatabase.prototype.transaction = function (
+      ...args: Parameters<IDBDatabase["transaction"]>
+    ) {
+      const result = transaction.apply(this, args);
+      if (args[1] === "readwrite") {
+        Object.defineProperty(result, "oncomplete", {
+          set(handler: (this: IDBTransaction, event: Event) => void) {
+            result.addEventListener("complete", (event) => {
+              setTimeout(() => handler.call(result, event), 400);
+            });
+          },
+        });
+      }
+      return result;
+    };
+  });
+  await page.goto("/");
+  await page.getByLabel("Your name").fill("Alex");
+  await page.getByRole("button", { name: "Use dark mode" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your money, in motion." }),
+  ).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Your money, in motion." }),
+  ).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
 test("sign-out preserves the profile and data until a confirmed reset", async ({
@@ -522,6 +579,13 @@ test("main screens have no automated accessibility violations", async ({
   expect(signInResults.violations, "sign-in screen").toEqual([]);
   await page.getByRole("button", { name: "Use dark mode" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  expect(
+    await getControlBoundaryContrast(
+      page,
+      ".signin-card input",
+      ".signin-card",
+    ),
+  ).toBeGreaterThanOrEqual(3);
   const darkSignInResults = await new AxeBuilder({ page }).analyze();
   expect(darkSignInResults.violations, "dark sign-in screen").toEqual([]);
   await page.getByLabel("Your name").fill("Alex");
@@ -549,7 +613,17 @@ test("main screens have no automated accessibility violations", async ({
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations, screen.name).toEqual([]);
     if (screen.name === "loans") {
+      expect(
+        await getControlBoundaryContrast(
+          page,
+          ".search-field input",
+          ".table-section",
+        ),
+      ).toBeGreaterThanOrEqual(3);
       await page.getByRole("button", { name: "Add loan" }).click();
+      expect(
+        await getControlBoundaryContrast(page, ".field input", ".dialog"),
+      ).toBeGreaterThanOrEqual(3);
       const fieldContrast = await getContrastPair(page, ".field input");
       expect(contrastRatio(...fieldContrast)).toBeGreaterThanOrEqual(4.5);
       const primaryButtonContrast = await getContrastPair(
@@ -768,7 +842,9 @@ test("reset restores sample data and mobile layout has no horizontal overflow", 
   const errors = watchBrowserErrors(page);
   await signIn(page);
   await page.getByRole("combobox", { name: "Language" }).selectOption("es");
-  for (const width of [375, 390, 768, 1280, 1440]) {
+  await page.getByRole("button", { name: "Usar modo oscuro" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  for (const width of [320, 340, 360, 375, 390, 768, 1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     const scrollWidth = await page.evaluate(
       () => document.documentElement.scrollWidth,
@@ -777,6 +853,18 @@ test("reset restores sample data and mobile layout has no horizontal overflow", 
       scrollWidth,
       `horizontal overflow at ${width}px`,
     ).toBeLessThanOrEqual(width);
+    if (width <= 390) {
+      for (const name of ["Espacio de trabajo", "Idioma"]) {
+        const bounds = await page.getByRole("combobox", { name }).boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+      }
+      const signOut = await page
+        .getByRole("button", { name: "Cerrar sesión" })
+        .boundingBox();
+      expect(signOut).not.toBeNull();
+      expect(signOut!.x + signOut!.width).toBeLessThanOrEqual(width);
+    }
   }
   await page.setViewportSize({ width: 375, height: 667 });
   await page.getByRole("combobox", { name: "Idioma" }).selectOption("en");

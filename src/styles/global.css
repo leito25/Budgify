@@ -179,6 +179,7 @@ h3 {
   border-radius: 10px;
   background: var(--panel);
   color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--control-border);
 }
 
 .content-wrap {
@@ -239,11 +240,13 @@ h3 {
 .button.secondary {
   background: var(--button-secondary-background);
   color: var(--button-secondary-ink);
+  box-shadow: inset 0 0 0 1px var(--control-border);
 }
 
 .button.danger {
   background: var(--surface-danger);
   color: var(--ink-danger);
+  box-shadow: inset 0 0 0 1px var(--control-border);
 }
 
 .button.small-button {
@@ -251,6 +254,7 @@ h3 {
   padding: 6px 10px;
   background: var(--surface-active);
   color: var(--ink-success-strong);
+  box-shadow: inset 0 0 0 1px var(--control-border);
   font-size: 12px;
 }
 
@@ -277,6 +281,7 @@ h3 {
   background: var(--control-background);
   color: var(--ink);
   font-size: 19px;
+  box-shadow: inset 0 0 0 1px var(--control-border);
 }
 
 .theme-toggle span {
@@ -692,6 +697,7 @@ h3 {
   border-radius: 10px;
   background: var(--control-background);
   color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--control-border);
 }
 
 .table-scroll {
@@ -917,6 +923,7 @@ table {
   border-radius: 13px;
   background: var(--control-background);
   color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--control-border);
   font-weight: 700;
   text-align: left;
 }
@@ -1108,6 +1115,7 @@ table {
   .top-bar {
     position: static;
     min-height: 58px;
+    gap: 10px;
     padding: 9px 15px;
   }
 
@@ -1116,10 +1124,20 @@ table {
   }
 
   .toolbar-controls {
+    min-width: 0;
+    flex: 1 1 auto;
+    justify-content: flex-end;
     gap: 4px;
   }
 
+  .toolbar-controls label {
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
   .toolbar-controls select {
+    width: 100%;
+    min-width: 0;
     max-width: 125px;
     padding: 8px;
     font-size: 11px;
@@ -1131,6 +1149,7 @@ table {
   }
 
   .wordmark {
+    flex: 0 0 auto;
     font-size: 17px;
   }
 
@@ -1140,6 +1159,7 @@ table {
 
   .hide-small {
     width: 30px;
+    flex: 0 0 30px;
     padding: 3px;
     overflow: hidden;
     font-size: 0;

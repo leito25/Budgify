@@ -1461,24 +1461,24 @@ export default function App() {
   }
 
   async function signIn(name: string, region: Region, mode: WorkspaceMode) {
-    if (!state || !repository) return;
-    if (!state.hasSignedIn) {
-      const seeded = createInitialState(todayDate(), { [mode]: region });
-      seeded.userName = name.trim();
-      seeded.isSignedIn = true;
-      seeded.activeMode = mode;
-      seeded.language = state.language;
-      seeded.theme = state.theme;
-      seeded.hasSignedIn = true;
-      await persist(() => seeded);
-      return;
-    }
-    await persist((current) => ({
-      ...current,
-      userName: current.userName ?? name.trim(),
-      isSignedIn: true,
-      activeMode: mode,
-    }));
+    await persist((current) => {
+      if (!current.hasSignedIn) {
+        const seeded = createInitialState(todayDate(), { [mode]: region });
+        seeded.userName = name.trim();
+        seeded.isSignedIn = true;
+        seeded.activeMode = mode;
+        seeded.language = current.language;
+        seeded.theme = current.theme;
+        seeded.hasSignedIn = true;
+        return seeded;
+      }
+      return {
+        ...current,
+        userName: current.userName ?? name.trim(),
+        isSignedIn: true,
+        activeMode: mode,
+      };
+    });
   }
 
   async function switchMode(mode: WorkspaceMode) {

@@ -92,6 +92,7 @@ export class StorageRepository {
   readonly warnings: string[] = [];
   private activeBackend: StorageBackend | undefined;
   private state: AppState | undefined;
+  private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly backends: StorageBackend[],
@@ -219,30 +220,47 @@ export class StorageRepository {
   async update(
     updateState: (current: AppState) => AppState,
   ): Promise<AppState> {
-    if (!this.state)
-      throw new Error("Load the repository before writing app state.");
-    const workingCopy = JSON.parse(JSON.stringify(this.state)) as AppState;
-    const nextState = updateState(workingCopy);
-    nextState.schemaVersion = CURRENT_SCHEMA_VERSION;
-    await this.persist(nextState);
-    return this.state as AppState;
+    return this.enqueueWrite(async () => {
+      if (!this.state)
+        throw new Error("Load the repository before writing app state.");
+      const workingCopy = JSON.parse(JSON.stringify(this.state)) as AppState;
+      const nextState = updateState(workingCopy);
+      nextState.schemaVersion = CURRENT_SCHEMA_VERSION;
+      await this.persist(nextState);
+      return nextState;
+    });
   }
 
   async reset(initialState: AppState): Promise<AppState> {
-    try {
-      for (const backend of this.backends) {
-        for (let version = 0; version < CURRENT_SCHEMA_VERSION; version += 1) {
-          await backend.remove(`${this.key}-backup-v${version}`);
+    return this.enqueueWrite(async () => {
+      try {
+        for (const backend of this.backends) {
+          for (
+            let version = 0;
+            version < CURRENT_SCHEMA_VERSION;
+            version += 1
+          ) {
+            await backend.remove(`${this.key}-backup-v${version}`);
+          }
+          if (backend !== this.activeBackend) await backend.remove(this.key);
         }
-        if (backend !== this.activeBackend) await backend.remove(this.key);
+      } catch (error) {
+        throw new StorageWriteError(
+          `Could not clear previous app data: ${errorMessage(error)}`,
+        );
       }
-    } catch (error) {
-      throw new StorageWriteError(
-        `Could not clear previous app data: ${errorMessage(error)}`,
-      );
-    }
-    await this.persist(initialState);
-    return this.state as AppState;
+      await this.persist(initialState);
+      return initialState;
+    });
+  }
+
+  private enqueueWrite(operation: () => Promise<AppState>): Promise<AppState> {
+    const result = this.writeQueue.then(operation);
+    this.writeQueue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   }
 
   private async persist(nextState: AppState): Promise<void> {
