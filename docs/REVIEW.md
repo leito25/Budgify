@@ -16,6 +16,12 @@ Make a separate pass over every change for each of these:
 
 An Important finding must be fixed before the change merges. A finding is Important if the change breaks behavior that should work, leaks data or breaks a rule in AGENTS.md.
 
+## Async state
+
+- Verify actions wait for fresh repository results and never act on cached or pending state.
+- Verify concurrent writes are ordered, failed writes stop the affected action, and later writes use the saved state.
+- Verify sign-in, theme changes, resets, CRUD, and other saves have regression coverage for immediate follow-up actions.
+
 ## Nits
 
 A nit is a small point, such as style or naming, that doesn't block the merge. Report at most five per review.
