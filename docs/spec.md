@@ -4,9 +4,9 @@
 
 Individuals and small businesses often cannot see the true cost of loans, credit-card installments, or late payments, or understand how debt affects their cash flow. They also lack a safe, engaging way to practice financial decisions. Budgify addresses this by making loan schedules, costs, and financial choices understandable in a local, bilingual planner and learning game.
 
-## Product today
+## Product
 
-Budgify is a responsive, client-side web application for managing and learning about debt and cash flow. It supports Colombia (COP) and the United States (USD), with separate Personal and Small Business workspaces. Calculated amounts are estimates, not lender terms or financial advice.
+Budgify is a responsive, client-side web application for managing and learning about debt and cash flow. It supports COP and USD in separate Personal and Small Business workspaces. Each workspace has its own selected display currency, independent of workspace type. Calculated amounts are estimates, not lender terms or financial advice.
 
 The application has five main areas:
 
@@ -21,15 +21,15 @@ Tables support search, sortable columns, create/edit/delete actions, and confirm
 ## Accounts and workspaces
 
 - The app uses one local, name-only profile and a simulated session. There is no password or account authentication.
-- Personal and Small Business modes have separate local data. Each workspace selects Colombia or the United States and uses that region's currency; currencies are not converted or combined.
+- During setup, the user chooses a name, a display currency, and a workspace type. Personal and Small Business modes have separate local data and remember their display currency separately. Currency does not depend on workspace type.
+- Changing a workspace's display currency converts displayed amounts using the applicable exchange rate. Stored amounts remain in their original/base currency and are not rewritten when the display currency changes.
 - Small Business blocks creation of a fourth active loan unless the user accepts a simulated membership upgrade. Paid-off loans do not count toward the limit. No real payment is collected.
-- A workspace's region cannot be changed while it contains loans or income; reset that workspace first.
 
 ## Financial behavior
 
 - A loan records its principal, installment count, interest rate and basis, simple or compound interest type, penalty rate, and first payment date. The date entered is the first installment date.
 - The schedule is generated monthly from that date. Dates clamp to the end of shorter months while retaining the original day as the anchor.
-- Simple-interest loans distribute flat interest across installments. Compound-interest loans use a fixed-payment amortization schedule. Effective annual rates convert to monthly rates; US APR presets are treated as nominal annual rates. Currency rounding is applied per installment, with the last installment reconciling the remaining amount.
+- Simple-interest loans distribute flat interest across installments. Compound-interest loans use a fixed-payment amortization schedule. Effective annual rates convert to monthly rates; US APR presets are treated as nominal annual rates. Currency rounding is applied per installment in the amount's original/base currency, with the last installment reconciling the remaining amount. Display conversion does not change the stored amounts or schedules.
 - Payment and loan states are derived, not manually assigned. Payments settle an installment in full; early and out-of-order settlement is allowed. After a payment, the loan's financial terms and first payment date lock, while its name and description remain editable.
 - The five days after a due date are a grace period. Starting on day six, an unpaid installment accrues simple penalty interest at its annual nominal penalty rate, on that installment only, using actual late days over 365. The penalty does not compound or capitalize into principal. A settled payment records its payment details and penalty.
 - Monthly obligations include unpaid installments due in the current calendar month and overdue unpaid installments. If recurring income is zero, debt-to-income is shown as an em dash.
@@ -40,7 +40,8 @@ Tables support search, sortable columns, create/edit/delete actions, and confirm
 - Data is stored locally in the browser: IndexedDB is preferred, with localStorage and memory-only fallbacks. The active storage mode is shown, and failed writes are reported rather than silently treated as durable.
 - Signing out preserves the saved name and workspace data. Reset requires confirmation, clears the saved name and local app data, restores sample records, and returns to name entry.
 - Local storage is not synced or recoverable across devices. Anyone using the same browser profile may access the data; clearing browser/app data, private browsing, or memory-only storage can cause data loss.
-- The app bundles its fonts, translations, and reference rates. There is no backend, bank connection, live rate fetching, or third-party payment service. An already-open page can work offline, but there is no service worker, so an offline first visit or reload is not guaranteed.
+- The app bundles its fonts, translations, and reference rates. It fetches current exchange rates from a live exchange-rate API when the app is used and saves them locally; rates are not polled continuously. When offline, it uses the last saved rate. If no rate has been saved, it explains that conversion is unavailable until a rate can be fetched. An already-open page can work offline, but there is no service worker, so an offline first visit or reload is not guaranteed.
+- The selected display currency is saved separately for each workspace and restored after reloading the app.
 - Sample workspaces include loans and installment purchases, income, upcoming payments, and an overdue example.
 - Users can export an amortization CSV with the complete schedule and print a one-page report with totals and the next five installments.
 
@@ -54,4 +55,4 @@ Tables support search, sortable columns, create/edit/delete actions, and confirm
 
 ## Out of scope
 
-Budgify does not provide cloud accounts or synchronization, bank connections, live interest rates, real payment processing or memberships, partial payments, manual loan-status editing, mixed-currency totals, automatic device-theme detection, AI chat, or external notifications. Native Electron and Capacitor applications are not shipped.
+Budgify does not provide cloud accounts or synchronization, bank connections, live interest rates, historical or per-transaction exchange rates, real payment processing or memberships, partial payments, manual loan-status editing, automatic device-theme detection, AI chat, or external notifications. Exchange rates are not updated continuously. Native Electron and Capacitor applications are not shipped.
