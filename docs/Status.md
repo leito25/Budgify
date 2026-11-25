@@ -27,6 +27,8 @@
 - Added a review policy covering bugs, security, and conformance to the specification and plan.
 - Added a Deploy-stage harness improvement checklist.
 - Added full and quick quality checks, formatting, complexity limits, type and secret scanning, and 80% unit coverage thresholds across the app.
+- Added Lefthook staged formatting and pre-commit checks, plus Copilot quick-check and `.env` edit safeguards.
+- Normalized the Copilot stop hook's working directory to avoid Windows Vitest runner failures.
 
 ## Remaining release validation
 

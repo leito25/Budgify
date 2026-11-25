@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "command": "node .github/hooks/protect-env.mjs",
+        "timeoutSec": 60
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "command": "node .github/hooks/check-stop.mjs",
+        "timeoutSec": 300
+      }
+    ]
+  }
+}

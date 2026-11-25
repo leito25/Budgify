@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "check": "node scripts/check.mjs",
     "check:quick": "node scripts/check.mjs --quick",
+    "prepare": "lefthook install",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,tsx}\" \"*.ts\" index.html && ruff format .",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run --coverage",
@@ -40,10 +41,16 @@
     "fake-indexeddb": "^6.2.0",
     "globals": "^17.14.0",
     "jsdom": "^27.0.0",
+    "lefthook": "^2.2.2",
+    "lint-staged": "^16.2.7",
     "prettier": "^3.10.1",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.74.0",
     "vite": "^7.1.0",
     "vitest": "^5.1.1"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,tsx,css,html,json,md,yml,yaml}": "prettier --write",
+    "*.py": "ruff format"
   }
 }

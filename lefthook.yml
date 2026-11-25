@@ -1,0 +1,7 @@
+pre-commit:
+  piped: true
+  jobs:
+    - name: format staged files
+      run: npx lint-staged
+    - name: lint, types and secrets
+      run: node scripts/check.mjs --precommit

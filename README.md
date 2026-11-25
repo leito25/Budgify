@@ -24,9 +24,13 @@ npm run check
 npm run build
 ```
 
-`npm run check` runs formatting, lint, complexity, type and working-tree secret checks, then `npm test`. `npm run check:quick` omits end-to-end tests. Unit coverage must reach 80% for statements, branches, functions and lines across `src`. Use `npm run format` to fix formatting. The Python checks currently find no files because the app has no backend. Gitleaks scans the working tree, respecting Git ignores including `.env`.
+`npm run check` runs formatting, lint, complexity, type and working-tree secret checks, then `npm test`. `npm run check:quick` omits end-to-end tests. Unit coverage must reach 80% for statements, branches, functions and lines across `src`. Use `npm run format` to fix formatting. The Python checks currently find no files because the app has no backend. Gitleaks scans the working tree, respecting Git ignores including `.env`, and shows redacted finding details.
 
 `npm test` runs all unit tests followed by all Playwright end-to-end projects and fails if either suite fails. For individual suites, use `npm run test:unit` or `npm run test:e2e`. Install Playwright browsers once after installing dependencies; Linux may also require `npx playwright install-deps`.
+
+`npm ci` installs the Lefthook pre-commit hook. It formats supported staged files, preserving unstaged edits, then runs lint, type and staged-secret checks without tests. Secret findings show their file, line and rule with the secret redacted. Run `node scripts/check.mjs --precommit` to rerun the checks without formatting staged files, or `npm run prepare` to reinstall the hook.
+
+Copilot workspace hooks run the quick check at turn completion and block once on failure. A pre-tool hook denies direct `.env` edits and shell commands that explicitly reference `.env`. Indirect writes, other tools and hook timeouts cannot be reliably blocked; this is a safeguard, not filesystem protection. Start a new Copilot session to load the hooks.
 
 Playwright's `mobile-chromium` project uses a 375-pixel viewport to exercise the responsive layout. Firefox, WebKit, and additional tablet/desktop viewports can be selected in `playwright.config.ts`.
 
