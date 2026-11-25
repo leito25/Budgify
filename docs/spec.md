@@ -46,11 +46,12 @@ Tables support search, sortable columns, create/edit/delete actions, and confirm
 
 ## Design and implementation
 
-- The UI follows Budgify's light-mode visual identity, uses locally bundled Instrument Sans, Instrument Serif, and JetBrains Mono fonts, and adapts to mobile, tablet, and desktop sizes.
-- Navigation covers the five product areas, with workspace-mode and language controls. Core controls support keyboard use; statuses are not communicated by color alone.
+- The UI follows Budgify's light and dark visual identity and uses locally bundled Instrument Sans, Instrument Serif, and JetBrains Mono fonts. Light mode is the default and keeps its current appearance; a theme toggle is available on every page, and the selected mode is remembered across reloads. The app does not follow the device's theme setting.
+- Theme colors are centralized in shared tokens. Light mode uses a `#F0F4F5` page background, white panels, and Midnight ink (`#073B4C`). Dark mode uses a `#04232E` page background, black panels, and Sea Mist ink (`#CDD8DB`), with contrast-appropriate brand accents. Normal text meets a 4.5:1 contrast ratio; large text and UI components meet 3:1. Charts, dialogs, and messages follow the selected mode.
+- Navigation covers the five product areas, with workspace-mode and language controls. Core controls support keyboard use; statuses are not communicated by color alone. The existing responsive layouts, including the phone layout, work in both modes without a phone-specific redesign.
 - The web app is built with React, TypeScript, and Vite. Financial and game rules are deterministic domain logic, separate from the UI; translations and local persistence are handled in dedicated layers. See [TechStack.md](./TechStack.md) for stack details.
 - The static web app is the shipped product and can be deployed to GitHub Pages. Electron and Capacitor wrapping instructions are documented, but working desktop or native wrapper configurations are not included.
 
 ## Out of scope
 
-Budgify does not provide cloud accounts or synchronization, bank connections, live interest rates, real payment processing or memberships, partial payments, manual loan-status editing, mixed-currency totals, dark mode, AI chat, or external notifications. Native Electron and Capacitor applications are not shipped.
+Budgify does not provide cloud accounts or synchronization, bank connections, live interest rates, real payment processing or memberships, partial payments, manual loan-status editing, mixed-currency totals, automatic device-theme detection, AI chat, or external notifications. Native Electron and Capacitor applications are not shipped.

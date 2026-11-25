@@ -31,6 +31,7 @@
 - Normalized the Copilot stop hook's working directory to avoid Windows Vitest runner failures.
 - Updated CI to scan for secrets first and run the full check with the runner's Chrome, Firefox and WebKit.
 - Prepared the dark-mode intent, clarifying WCAG AA contrast, existing mobile-layout support, and screenshot targets.
+- Updated the product specification to describe the intended post-change dark-mode behavior and brand palette.
 
 ## Remaining release validation
 
