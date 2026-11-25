@@ -34,6 +34,7 @@
 - Updated the product specification to describe the intended post-change dark-mode behavior and brand palette.
 - Added the phased dark-mode implementation plan with migration, accessibility, persistence, and screenshot proof.
 - Implemented persistent light/dark mode with schema-v2 migration, localized toggles, centralized accessible theme tokens, dark-mode UI coverage, and light-mode printing. Full `npm run check` passes: 61 unit tests and 67 E2E tests pass (5 expected skips); captured dashboard and loan-ledger screenshots in both themes.
+- Stabilized ledger screenshot capture by waiting for navigation; reran the full check and captured all four screenshots.
 
 ## Remaining release validation
 

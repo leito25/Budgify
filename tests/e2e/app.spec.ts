@@ -579,6 +579,9 @@ test("captures dashboard and loans in both themes", async ({
     fullPage: true,
   });
   await page.getByRole("link", { name: "Loans & Installments" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Loans & Installments" }),
+  ).toBeVisible();
   await page.screenshot({
     path: screenshotPath("loans-light.png"),
     fullPage: true,
