@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   cloneElement,
@@ -42,7 +43,7 @@ import {
 import type { ValidationIssue } from "./domain/validation";
 import { validateIncome, validateLoan } from "./domain/validation";
 import { createInitialState, resetState } from "./storage/seed";
-import type { AppState } from "./storage/model";
+import type { AppState, Theme } from "./storage/model";
 import {
   createBrowserRepository,
   RecoveryRequiredError,
@@ -605,7 +606,7 @@ function Dashboard({
               width={300 * principalShare}
               height="18"
               rx="8"
-              fill="#06D6A0"
+              fill="var(--chart-principal)"
             />
             <rect
               x={300 * principalShare}
@@ -613,7 +614,7 @@ function Dashboard({
               width={300 * (1 - principalShare)}
               height="18"
               rx="8"
-              fill="#FFC145"
+              fill="var(--chart-interest)"
             />
           </svg>
           <table className="chart-table">
@@ -847,12 +848,12 @@ function PaymentTimeline({
                 rx="5"
                 fill={
                   [
-                    "#B9EBE0",
-                    "#06D6A0",
-                    "#FFC145",
-                    "#F78C6B",
-                    "#A9D8E2",
-                    "#DCEBED",
+                    "var(--chart-extra-1)",
+                    "var(--chart-extra-2)",
+                    "var(--chart-extra-3)",
+                    "var(--chart-extra-4)",
+                    "var(--chart-extra-5)",
+                    "var(--chart-extra-6)",
                   ][index % 6]
                 }
               />
@@ -1378,6 +1379,10 @@ export default function App() {
   );
   const [upgradePrompt, setUpgradePrompt] = useState(false);
 
+  useLayoutEffect(() => {
+    document.documentElement.dataset.theme = state?.theme ?? "light";
+  }, [state?.theme]);
+
   useEffect(() => {
     let active = true;
     async function initialize() {
@@ -1463,6 +1468,7 @@ export default function App() {
       seeded.isSignedIn = true;
       seeded.activeMode = mode;
       seeded.language = state.language;
+      seeded.theme = state.theme;
       seeded.hasSignedIn = true;
       await persist(() => seeded);
       return;
@@ -1643,6 +1649,10 @@ export default function App() {
     await persist((current) => ({ ...current, language: nextLanguage }));
   }
 
+  async function updateTheme(nextTheme: Theme) {
+    await persist((current) => ({ ...current, theme: nextTheme }));
+  }
+
   async function acceptUpgrade() {
     const accepted = await persist((current) => ({
       ...current,
@@ -1749,6 +1759,7 @@ export default function App() {
         storageMode={storageMode}
         onSignIn={signIn}
         onLanguage={updateLanguage}
+        onTheme={updateTheme}
         t={t}
         error={error}
       />
@@ -1948,6 +1959,23 @@ export default function App() {
           </label>
           <button
             type="button"
+            className="theme-toggle"
+            aria-label={t(
+              state.theme === "light" ? "theme.useDark" : "theme.useLight",
+            )}
+            title={t(
+              state.theme === "light" ? "theme.useDark" : "theme.useLight",
+            )}
+            onClick={() =>
+              void updateTheme(state.theme === "light" ? "dark" : "light")
+            }
+          >
+            <span aria-hidden="true">
+              {state.theme === "light" ? "☾" : "☀"}
+            </span>
+          </button>
+          <button
+            type="button"
             className="text-button hide-small"
             onClick={() => void signOut()}
           >
@@ -2009,6 +2037,7 @@ function SignIn({
   storageMode,
   onSignIn,
   onLanguage,
+  onTheme,
   t,
   error,
 }: {
@@ -2020,6 +2049,7 @@ function SignIn({
     mode: WorkspaceMode,
   ) => Promise<void>;
   onLanguage: (language: Language) => Promise<void>;
+  onTheme: (theme: Theme) => Promise<void>;
   t: (key: TranslationKey) => string;
   error: string;
 }) {
@@ -2037,6 +2067,21 @@ function SignIn({
           if (name.trim()) void onSignIn(name, region, mode);
         }}
       >
+        <button
+          type="button"
+          className="theme-toggle signin-theme-toggle"
+          aria-label={t(
+            state.theme === "light" ? "theme.useDark" : "theme.useLight",
+          )}
+          title={t(
+            state.theme === "light" ? "theme.useDark" : "theme.useLight",
+          )}
+          onClick={() =>
+            void onTheme(state.theme === "light" ? "dark" : "light")
+          }
+        >
+          <span aria-hidden="true">{state.theme === "light" ? "☾" : "☀"}</span>
+        </button>
         <div className="brand-mark">b.</div>
         <p className="eyebrow">{t("app.name")}</p>
         <h1>{t("signin.title")}</h1>

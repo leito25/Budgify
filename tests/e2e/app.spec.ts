@@ -39,6 +39,40 @@ async function fillLoanForm(page: Page, name: string, principal = "90") {
   await page.locator("#loan-first-due-date").fill("2026-12-15");
 }
 
+function contrastRatio(foreground: string, background: string): number {
+  function luminance(color: string): number {
+    const channels = color
+      .match(/\d+(?:\.\d+)?/g)
+      ?.slice(0, 3)
+      .map(Number);
+    if (!channels || channels.length !== 3)
+      throw new Error(`Unexpected computed color: ${color}`);
+    const [red, green, blue] = channels.map((channel) => {
+      const value = channel / 255;
+      return value <= 0.04045
+        ? value / 12.92
+        : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+  const first = luminance(foreground);
+  const second = luminance(background);
+  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+}
+
+async function getContrastPair(
+  page: Page,
+  selector: string,
+): Promise<[string, string]> {
+  return page
+    .locator(selector)
+    .first()
+    .evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [style.color, style.backgroundColor];
+    });
+}
+
 test("sign-in, language preference, and session persist without a password", async ({
   page,
 }) => {
@@ -65,6 +99,48 @@ test("sign-in, language preference, and session persist without a password", asy
   await expect(page.getByLabel("Tu nombre")).toHaveValue("Alex");
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test("theme toggle is available across sign-in and every product section", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(
+    page.getByRole("button", { name: "Use dark mode" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Use dark mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByLabel("Your name").fill("Alex");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your money, in motion." }),
+  ).toBeVisible();
+
+  const screens = [
+    "Dashboard",
+    "Loans & Installments",
+    "Income & Balance",
+    "Payment Calendar",
+    "Financial Quest",
+    "Reports",
+  ];
+  for (const screen of screens) {
+    await page.getByRole("link", { name: screen, exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Use light mode" }),
+    ).toBeVisible();
+  }
+
+  await page.getByRole("button", { name: "Use light mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(
+    page.getByRole("button", { name: "Use dark mode" }),
+  ).toBeVisible();
 });
 
 test("sign-out preserves the profile and data until a confirmed reset", async ({
@@ -444,8 +520,20 @@ test("main screens have no automated accessibility violations", async ({
   ).toBeVisible();
   const signInResults = await new AxeBuilder({ page }).analyze();
   expect(signInResults.violations, "sign-in screen").toEqual([]);
+  await page.getByRole("button", { name: "Use dark mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  const darkSignInResults = await new AxeBuilder({ page }).analyze();
+  expect(darkSignInResults.violations, "dark sign-in screen").toEqual([]);
   await page.getByLabel("Your name").fill("Alex");
   await page.getByRole("button", { name: "Continue" }).click();
+
+  const bodyContrast = await getContrastPair(page, "body");
+  expect(contrastRatio(...bodyContrast)).toBeGreaterThanOrEqual(4.5);
+  const navContrast = await getContrastPair(
+    page,
+    '.navigation-rail nav a[aria-current="page"]',
+  );
+  expect(contrastRatio(...navContrast)).toBeGreaterThanOrEqual(4.5);
 
   const screens = [
     { name: "dashboard", link: null },
@@ -460,8 +548,71 @@ test("main screens have no automated accessibility violations", async ({
       await page.getByRole("link", { name: screen.link }).click();
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations, screen.name).toEqual([]);
+    if (screen.name === "loans") {
+      await page.getByRole("button", { name: "Add loan" }).click();
+      const fieldContrast = await getContrastPair(page, ".field input");
+      expect(contrastRatio(...fieldContrast)).toBeGreaterThanOrEqual(4.5);
+      const primaryButtonContrast = await getContrastPair(
+        page,
+        ".dialog .button.primary",
+      );
+      expect(contrastRatio(...primaryButtonContrast)).toBeGreaterThanOrEqual(3);
+      const dialogResults = await new AxeBuilder({ page }).analyze();
+      expect(dialogResults.violations, "loans dialog").toEqual([]);
+      await page.getByRole("button", { name: "Cancel" }).click();
+    }
   }
   expect(errors).toEqual([]);
+});
+
+test("captures dashboard and loans in both themes", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium");
+  await signIn(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const screenshotPath = (name: string) =>
+    join(process.cwd(), "docs", "changes", "dark-mode", name);
+
+  await page.screenshot({
+    path: screenshotPath("dashboard-light.png"),
+    fullPage: true,
+  });
+  await page.getByRole("link", { name: "Loans & Installments" }).click();
+  await page.screenshot({
+    path: screenshotPath("loans-light.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Use dark mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.screenshot({
+    path: screenshotPath("loans-dark.png"),
+    fullPage: true,
+  });
+  await page.getByRole("link", { name: "Dashboard" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your money, in motion." }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath("dashboard-dark.png"),
+    fullPage: true,
+  });
+  await page.getByRole("link", { name: "Reports" }).click();
+  await expect(page.locator(".print-summary")).toBeVisible();
+  await page.emulateMedia({ media: "print" });
+  const printStyles = await page
+    .locator(".print-summary")
+    .evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        background: style.backgroundColor,
+        color: style.color,
+      };
+    });
+  expect(printStyles).toEqual({
+    background: "rgb(255, 255, 255)",
+    color: "rgb(7, 59, 76)",
+  });
 });
 
 test("dashboard matches the planning board and exposes six monthly totals", async ({

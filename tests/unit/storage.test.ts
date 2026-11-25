@@ -173,6 +173,43 @@ describe("storage repository", () => {
     },
   );
 
+  it("migrates schema-v2 data to light mode and round-trips the chosen theme", async () => {
+    const backend = new TestBackend("indexeddb");
+    const { theme: _theme, ...schemaV2 } = createInitialState("2026-11-23");
+    expect(_theme).toBe("light");
+    schemaV2.schemaVersion = 2;
+    schemaV2.userName = "Alex";
+    schemaV2.hasSignedIn = true;
+    schemaV2.workspaces.personal.income[0].source = "Saved income";
+    const original = JSON.stringify({ schemaVersion: 2, data: schemaV2 });
+    await backend.set("budgify-state", original);
+
+    const repository = new StorageRepository([backend]);
+    const loaded = await repository.load(createInitialState("2026-11-23"));
+    expect(loaded.schemaVersion).toBe(3);
+    expect(loaded.theme).toBe("light");
+    expect(loaded.userName).toBe("Alex");
+    expect(loaded).toMatchObject({
+      hasSignedIn: true,
+      isSignedIn: false,
+      activeMode: schemaV2.activeMode,
+      language: schemaV2.language,
+      workspaces: schemaV2.workspaces,
+      gameProgress: schemaV2.gameProgress,
+    });
+    expect(await backend.get("budgify-state-backup-v2")).toBe(original);
+
+    await repository.update((state) => {
+      state.theme = "dark";
+      return state;
+    });
+    const restored = await new StorageRepository([backend]).load(
+      createInitialState("2026-11-23"),
+    );
+    expect(restored.theme).toBe("dark");
+    expect(restored.workspaces).toEqual(loaded.workspaces);
+  });
+
   it("preserves a profile and its data when the session is ended and restored", async () => {
     const backend = new TestBackend("indexeddb");
     const repository = new StorageRepository([backend]);

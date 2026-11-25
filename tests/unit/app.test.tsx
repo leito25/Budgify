@@ -56,6 +56,26 @@ async function navigate(name: string) {
 }
 
 describe("app workflows", () => {
+  it("starts in light mode and applies a selected theme across sign-in", async () => {
+    render(<App />);
+    await screen.findByLabelText("Your name");
+    expect(document.documentElement.dataset.theme).toBe("light");
+
+    fireEvent.click(screen.getByRole("button", { name: "Use dark mode" }));
+    await waitFor(() =>
+      expect(document.documentElement.dataset.theme).toBe("dark"),
+    );
+    expect(screen.getByRole("button", { name: "Use light mode" })).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Your name"), {
+      target: { value: "Alex" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Your money, in motion." });
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(screen.getByRole("button", { name: "Use light mode" })).toBeTruthy();
+  });
+
   it("creates, edits, searches and deletes loans and income", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     await signIn();

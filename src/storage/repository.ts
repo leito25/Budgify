@@ -58,6 +58,7 @@ function isAppState(value: unknown): value is AppState {
   if (!isLegacyAppState(value) || !("isSignedIn" in value)) return false;
   return (
     typeof value.isSignedIn === "boolean" &&
+    (value.theme === "light" || value.theme === "dark") &&
     (!value.isSignedIn ||
       (typeof value.userName === "string" && value.userName.trim().length > 0))
   );
@@ -72,6 +73,11 @@ const defaultMigrations: Record<number, Migration> = {
       isSignedIn:
         typeof data.userName === "string" && data.userName.trim().length > 0,
     };
+  },
+  2: (data) => {
+    if (!isLegacyAppState(data))
+      throw new Error("Legacy app data has an invalid structure.");
+    return { ...data, theme: "light" };
   },
 };
 

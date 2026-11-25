@@ -4,10 +4,25 @@
 }
 
 @media print {
+  :root,
+  :root[data-theme="dark"] {
+    color-scheme: light;
+    --ink: var(--print-ink);
+    --muted: var(--print-muted);
+    --background: var(--print-page);
+    --panel: var(--print-page);
+    --surface-white: var(--print-page);
+    --surface-subtle: var(--print-panel);
+    --control-background: var(--print-panel);
+    --surface-divider: var(--print-divider);
+    --shadow-soft: none;
+    --shadow-dialog: none;
+  }
+
   html,
   body {
-    background: #ffffff !important;
-    color: #073b4c !important;
+    background: var(--print-page) !important;
+    color: var(--print-ink) !important;
   }
 
   .navigation-rail,
@@ -50,7 +65,7 @@
     padding: 10px;
     border-radius: 8px;
     box-shadow: none;
-    background: #f0f4f5;
+    background: var(--print-panel);
   }
 
   .print-summary .metric-value {

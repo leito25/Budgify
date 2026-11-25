@@ -24,6 +24,8 @@ export const en = {
   "workspace.us": "United States · USD",
   "language.english": "English",
   "language.spanish": "Spanish",
+  "theme.useDark": "Use dark mode",
+  "theme.useLight": "Use light mode",
   "storage.indexeddb": "Saved on this device",
   "storage.localstorage": "Using browser fallback storage",
   "storage.memory":

@@ -91,7 +91,7 @@ h3 {
   place-items: center;
   border-radius: 13px;
   background: var(--sea-green);
-  color: var(--ink);
+  color: var(--ink-on-brand);
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -1.5px;
@@ -115,8 +115,8 @@ h3 {
 }
 
 .navigation-rail nav a[aria-current="page"] {
-  background: #d8f8ed;
-  color: #00634c;
+  background: var(--surface-active);
+  color: var(--ink-active);
 }
 
 .nav-label {
@@ -130,7 +130,7 @@ h3 {
   margin-top: auto;
   place-items: center;
   border-radius: 50%;
-  background: #ffe4ce;
+  background: var(--surface-avatar);
   font-weight: 700;
 }
 
@@ -148,7 +148,7 @@ h3 {
   justify-content: space-between;
   gap: 18px;
   padding: 12px clamp(18px, 4vw, 48px);
-  background: rgb(240 244 245 / 94%);
+  background: var(--top-bar-background);
   backdrop-filter: blur(12px);
 }
 
@@ -232,25 +232,25 @@ h3 {
 }
 
 .button.primary {
-  background: var(--ink);
-  color: #ffffff;
+  background: var(--button-primary-background);
+  color: var(--button-primary-ink);
 }
 
 .button.secondary {
-  background: #ffffff;
-  color: var(--ink);
+  background: var(--button-secondary-background);
+  color: var(--button-secondary-ink);
 }
 
 .button.danger {
-  background: #ffe5e9;
-  color: #9e2645;
+  background: var(--surface-danger);
+  color: var(--ink-danger);
 }
 
 .button.small-button {
   min-height: 34px;
   padding: 6px 10px;
-  background: #d8f8ed;
-  color: #005b45;
+  background: var(--surface-active);
+  color: var(--ink-success-strong);
   font-size: 12px;
 }
 
@@ -265,8 +265,26 @@ h3 {
   font-weight: 700;
 }
 
+.theme-toggle {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control-background);
+  color: var(--ink);
+  font-size: 19px;
+}
+
+.theme-toggle span {
+  line-height: 1;
+}
+
 .danger-text {
-  color: #9e2645;
+  color: var(--ink-danger);
 }
 
 .icon-button {
@@ -298,7 +316,7 @@ h3 {
   flex-direction: column;
   justify-content: space-between;
   padding: 23px;
-  background: #d8f8ed;
+  background: var(--surface-active);
 }
 
 .hero-value {
@@ -359,8 +377,8 @@ h3 {
   align-items: center;
   border-radius: 999px;
   padding: 5px 9px;
-  background: #e8f4f6;
-  color: #285d6c;
+  background: var(--surface-info);
+  color: var(--ink-info);
   font-size: 10px;
   font-weight: 700;
 }
@@ -418,7 +436,7 @@ h3 {
   gap: 16px;
   padding: 16px 19px;
   border-radius: 14px;
-  background: #fff0cd;
+  background: var(--surface-warning);
 }
 
 .attention-banner p {
@@ -449,15 +467,15 @@ h3 {
   min-height: 245px;
   padding: 15px;
   border-radius: 17px;
-  background: #e5efee;
+  background: var(--surface-lane);
 }
 
 .status-lane.lane-overdue {
-  background: #f9e9e9;
+  background: var(--surface-lane-overdue);
 }
 
 .status-lane.lane-paid {
-  background: #e6eef1;
+  background: var(--surface-lane-paid);
 }
 
 .status-lane h3 {
@@ -473,7 +491,7 @@ h3 {
   height: 25px;
   place-items: center;
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface-white);
   font:
     700 11px "JetBrains Mono",
     monospace;
@@ -483,7 +501,7 @@ h3 {
   margin-top: 9px;
   padding: 14px;
   border-radius: 13px;
-  background: #ffffff;
+  background: var(--surface-white);
 }
 
 .loan-description {
@@ -534,23 +552,23 @@ h3 {
 }
 
 .status-badge.active {
-  background: #dcf8ef;
-  color: #00634c;
+  background: var(--surface-success);
+  color: var(--ink-success);
 }
 
 .status-badge.grace {
-  background: #fff0cd;
-  color: #775600;
+  background: var(--surface-warning);
+  color: var(--ink-warning);
 }
 
 .status-badge.overdue {
-  background: #ffe5e9;
-  color: #9e2645;
+  background: var(--surface-danger);
+  color: var(--ink-danger);
 }
 
 .status-badge.paid {
-  background: #e8f4f6;
-  color: #285d6c;
+  background: var(--surface-info);
+  color: var(--ink-info);
 }
 
 .bottom-grid {
@@ -573,7 +591,7 @@ h3 {
   gap: 7px;
   padding: 12px;
   border-radius: 11px;
-  background: #f5f8f8;
+  background: var(--surface-payment);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
@@ -613,7 +631,7 @@ h3 {
   flex: 0 0 auto;
   place-items: center;
   border-radius: 15px;
-  background: #ffe8b0;
+  background: var(--surface-marigold);
   font-size: 24px;
 }
 
@@ -672,7 +690,7 @@ h3 {
   padding: 9px 11px;
   border: 0;
   border-radius: 10px;
-  background: #f0f4f5;
+  background: var(--control-background);
   color: var(--ink);
 }
 
@@ -694,7 +712,7 @@ table {
 .table-section td {
   min-width: 110px;
   padding: 12px 10px;
-  border-bottom: 1px solid #e8eff0;
+  border-bottom: 1px solid var(--surface-divider);
   font-size: 12px;
   vertical-align: middle;
 }
@@ -737,14 +755,14 @@ table {
   margin-bottom: 16px;
   padding: 11px 14px;
   border-radius: 10px;
-  background: #fff0cd;
+  background: var(--surface-warning);
   font-size: 13px;
 }
 
 .storage-banner.memory,
 .error-banner {
-  background: #ffe5e9;
-  color: #792039;
+  background: var(--surface-danger);
+  color: var(--ink-danger-strong);
 }
 
 .page-section > .table-section {
@@ -760,14 +778,14 @@ table {
   padding: 22px;
   border: 0;
   border-radius: 19px;
-  background: #ffffff;
+  background: var(--surface-white);
   color: var(--ink);
-  box-shadow: 0 28px 90px rgb(7 59 76 / 20%);
+  box-shadow: var(--shadow-dialog);
   overflow: hidden;
 }
 
 .dialog::backdrop {
-  background: rgb(7 59 76 / 44%);
+  background: var(--dialog-backdrop);
   backdrop-filter: blur(3px);
 }
 
@@ -810,7 +828,7 @@ table {
 }
 
 .field-error {
-  color: #9e2645;
+  color: var(--ink-danger);
   font-size: 12px;
   font-weight: 600;
 }
@@ -827,7 +845,7 @@ table {
   gap: 8px 18px;
   padding: 14px;
   border-radius: 12px;
-  background: #e8f4f6;
+  background: var(--surface-info);
   font-size: 12px;
 }
 
@@ -842,7 +860,7 @@ table {
 .helper-panel {
   padding: 12px;
   border-radius: 10px;
-  background: #f0f4f5;
+  background: var(--control-background);
   color: var(--muted);
   font-size: 12px;
 }
@@ -858,7 +876,7 @@ table {
 }
 
 .validation-summary {
-  color: #9e2645;
+  color: var(--ink-danger);
   font-size: 12px;
 }
 
@@ -869,7 +887,7 @@ table {
   gap: 9px;
   margin-top: 10px;
   padding: 10px 0 2px;
-  background: #ffffff;
+  background: var(--surface-white);
 }
 
 .app-footer {
@@ -897,7 +915,7 @@ table {
   padding: 15px;
   border: 0;
   border-radius: 13px;
-  background: #f0f4f5;
+  background: var(--control-background);
   color: var(--ink);
   font-weight: 700;
   text-align: left;
@@ -918,14 +936,14 @@ table {
 .challenge {
   border-radius: 99px;
   padding: 7px 11px;
-  background: #f0f4f5;
+  background: var(--control-background);
   color: var(--muted);
   font-size: 11px;
 }
 
 .challenge.done {
-  background: #dcf8ef;
-  color: #00634c;
+  background: var(--surface-success);
+  color: var(--ink-success);
 }
 
 .report-actions {
@@ -953,7 +971,7 @@ table {
 .report-table th,
 .report-table td {
   padding: 9px;
-  border-bottom: 1px solid #e8eff0;
+  border-bottom: 1px solid var(--surface-divider);
   text-align: left;
 }
 
@@ -967,13 +985,20 @@ table {
 }
 
 .signin-card {
+  position: relative;
   display: grid;
   width: min(430px, 100%);
   gap: 15px;
   padding: 28px;
   border-radius: 22px;
-  background: #ffffff;
+  background: var(--surface-white);
   box-shadow: var(--shadow-soft);
+}
+
+.signin-theme-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
 }
 
 .signin-card > label,
@@ -988,7 +1013,7 @@ table {
 .privacy-note {
   padding: 12px;
   border-radius: 10px;
-  background: #f0f4f5;
+  background: var(--control-background);
   color: var(--muted);
   font-size: 12px;
 }
@@ -1091,13 +1116,18 @@ table {
   }
 
   .toolbar-controls {
-    gap: 6px;
+    gap: 4px;
   }
 
   .toolbar-controls select {
-    max-width: 145px;
+    max-width: 125px;
     padding: 8px;
     font-size: 11px;
+  }
+
+  .toolbar-controls .theme-toggle {
+    width: 30px;
+    height: 30px;
   }
 
   .wordmark {

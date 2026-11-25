@@ -158,6 +158,7 @@ export function createInitialState(
     hasSignedIn: false,
     activeMode: "personal",
     language: "en",
+    theme: "light",
     workspaces: {
       personal: createWorkspace(
         "personal",
