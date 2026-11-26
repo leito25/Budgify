@@ -1,0 +1,7 @@
+{
+  "coda.advancedSettings": {
+    "backendPort": 62343,
+    "headersTimeout": 0,
+    "bodyTimeout": 0
+  }
+}

@@ -41,6 +41,7 @@
 - Fixed offline currency editing, queued exchange-rate writes, and converted CSV exports; added regression coverage.
 - Deployment harness review: strengthened async review guidance for request identity and intervening writes. Full `npm run check` passed: 76 unit and 83 E2E tests, with 5 expected skips. Gitleaks found no issues; `ty` warned that no Python files were found.
 - Added the GitHub Pages app link to the README.
+- Added Sonnet reviewer and Playwright UI-check subagents, with a project Playwright MCP configuration and ignored screenshots.
 
 ## Remaining release validation
 
