@@ -35,7 +35,7 @@ npm run build
 Copilot workspace hooks run the quick check at turn completion and block once on failure. A pre-tool hook denies direct `.env` edits and shell commands that explicitly reference `.env`. Indirect writes, other tools and hook timeouts cannot be reliably blocked; this is a safeguard, not filesystem protection. Start a new Copilot session to load the hooks.
 
 Playwright's `mobile-chromium` project uses a 375-pixel viewport to exercise the responsive layout. Firefox, WebKit, and additional tablet/desktop viewports can be selected in `playwright.config.ts`.
-CI scans for secrets first, runs the full check using the runner's Google Chrome, and uploads the Playwright report if a check fails.
+CI scans for secrets first, then runs the quick check, the translation parity check and the build. It does not run the end-to-end tests; run `npm run check` locally before merging.
 
 ## Reset local data
 

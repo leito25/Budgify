@@ -42,6 +42,7 @@
 - Deployment harness review: strengthened async review guidance for request identity and intervening writes. Full `npm run check` passed: 76 unit and 83 E2E tests, with 5 expected skips. Gitleaks found no issues; `ty` warned that no Python files were found.
 - Added the GitHub Pages app link to the README.
 - Added Sonnet reviewer and Playwright UI-check subagents, with a project Playwright MCP configuration and ignored screenshots.
+- Changed CI to run the quick check without end-to-end tests, and removed its Playwright browser install, Chrome channel setting and report upload.
 
 ## Remaining release validation
 
