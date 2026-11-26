@@ -20,6 +20,8 @@ An Important finding must be fixed before the change merges. A finding is Import
 
 - Verify actions wait for fresh repository results and never act on cached or pending state.
 - Verify concurrent writes are ordered, failed writes stop the affected action, and later writes use the saved state.
+- For delayed responses and queued writes, verify the result stays bound to its original request or action, while state-dependent decisions use the latest saved state.
+- Test an intervening state change while a request or write is pending, and verify the resulting persisted data.
 - Verify sign-in, theme changes, resets, CRUD, and other saves have regression coverage for immediate follow-up actions.
 
 ## Nits

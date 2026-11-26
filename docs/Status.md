@@ -39,6 +39,7 @@
 - Added the Deploy-stage recurring async-state review rule and recorded a clean full-check result.
 - Implemented workspace-independent base/display currencies with schema-v4 migration, persistent live-rate caching, display-only conversion, localized fallback messaging, setup and toolbar controls, and cross-workspace reload coverage.
 - Fixed offline currency editing, queued exchange-rate writes, and converted CSV exports; added regression coverage.
+- Deployment harness review: strengthened async review guidance for request identity and intervening writes. Full `npm run check` passed: 76 unit and 83 E2E tests, with 5 expected skips. Gitleaks found no issues; `ty` warned that no Python files were found.
 
 ## Remaining release validation
 

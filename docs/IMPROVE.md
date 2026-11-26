@@ -2,10 +2,9 @@
 
 Run this at Deploy, after the review fixes and before the merge.
 
-1. Look at what went wrong on this change: the review's findings, what the person corrected and what the checks caught.
-2. For a mistake that has happened twice, add the correction to AGENTS.md or docs/REVIEW.md, or suggest a change to docs/STANDARDS.md for the person to make. If a tool can catch it, add it to the checks instead.
-3. Remove anything out of date.
-4. Improve this file, so that the next round makes a better change. Keep this as the last step.
-5. Show the details of the gitleaks issues and other tool issues.
-6. Record whether the full check passed, including unit, end-to-end, and expected skips.
-7. If the repeated mistake is already documented in AGENTS.md or docs/STANDARDS.md, make sure docs/REVIEW.md says how to catch it instead of duplicating it.
+1. Compare this change's review findings, corrections and check failures with earlier evidence; identify mistakes that have happened at least twice.
+2. For a repeated mistake, add an automated check if practical. Otherwise, update AGENTS.md or docs/REVIEW.md, or suggest a change to docs/STANDARDS.md. If the rule already exists, explain how to catch it in docs/REVIEW.md rather than duplicating it.
+3. Remove guidance made obsolete by the changes.
+4. Run the full check and record the result in docs/Status.md, including unit and end-to-end counts and expected skips.
+5. Report gitleaks findings and other tool failures or warnings, with actionable details; never expose secrets.
+6. As the last step, improve this checklist using what was learned.
