@@ -45,3 +45,10 @@
 
 - The observed non-technical demo in `docs/demo-script.md` still requires a participant and must be completed outside this coding session.
 - Linked the Colombian preset to the SFC's official interest-certification listing. Recheck the dated values when updating them; never treat them as current offers or legal limits.
+
+## Ideas for later
+
+- Use a dark border for the workspace-type control in dark mode instead of white.
+- Use a dark border for the currency control in dark mode instead of white.
+- Use a dark border for the language control in dark mode instead of white.
+- Use a dark border for the dark-mode toggle in dark mode instead of white.
