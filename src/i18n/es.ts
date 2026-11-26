@@ -152,6 +152,7 @@ export const es = {
   "common.currency": "Moneda",
   "currency.unavailable":
     "La conversión no está disponible hasta obtener una tasa de cambio.",
+  "currency.input": "Ingresa los valores en {currency}.",
   "common.dueDate": "Fecha de pago",
   "common.amount": "Valor",
   "common.principal": "Capital",

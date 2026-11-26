@@ -1,5 +1,5 @@
 import { estimateLateInterest } from "./late-interest";
-import { decimalPlaces } from "./money";
+import { convertMinorUnits, decimalPlaces } from "./money";
 import { generateSchedule } from "./schedule";
 import type { Language } from "../i18n";
 import type { Currency, Loan, Payment } from "./types";
@@ -20,7 +20,14 @@ export function buildAmortizationCsv(
   currency: Currency,
   language: Language,
   asOfDate = new Date().toISOString().slice(0, 10),
+  conversion: { currency: Currency; rate: number } = { currency, rate: 1 },
 ): string {
+  const displayCurrency = conversion.currency;
+  const displayAmount = (value: number) =>
+    amount(
+      convertMinorUnits(value, currency, displayCurrency, conversion.rate),
+      displayCurrency,
+    );
   const headers =
     language === "es"
       ? [
@@ -28,24 +35,24 @@ export function buildAmortizationCsv(
           "Descripción",
           "Cuota",
           "Fecha de pago",
-          `Pago (${currency})`,
-          `Capital (${currency})`,
-          `Interés (${currency})`,
-          `Capital pendiente (${currency})`,
+          `Pago (${displayCurrency})`,
+          `Capital (${displayCurrency})`,
+          `Interés (${displayCurrency})`,
+          `Capital pendiente (${displayCurrency})`,
           "Fecha pagada",
-          `Interés por mora (${currency})`,
+          `Interés por mora (${displayCurrency})`,
         ]
       : [
           "Loan",
           "Description",
           "Installment",
           "Due date",
-          `Payment (${currency})`,
-          `Principal (${currency})`,
-          `Interest (${currency})`,
-          `Remaining principal (${currency})`,
+          `Payment (${displayCurrency})`,
+          `Principal (${displayCurrency})`,
+          `Interest (${displayCurrency})`,
+          `Remaining principal (${displayCurrency})`,
           "Paid date",
-          `Late interest (${currency})`,
+          `Late interest (${displayCurrency})`,
         ];
   const rows = [headers.map(csvCell).join(",")];
 
@@ -67,12 +74,12 @@ export function buildAmortizationCsv(
           loan.description,
           installment.index,
           installment.dueDate,
-          amount(installment.amountMinor, currency),
-          amount(installment.principalMinor, currency),
-          amount(installment.interestMinor, currency),
-          amount(installment.remainingPrincipalMinor, currency),
+          displayAmount(installment.amountMinor),
+          displayAmount(installment.principalMinor),
+          displayAmount(installment.interestMinor),
+          displayAmount(installment.remainingPrincipalMinor),
           payment?.paidDate ?? "",
-          amount(lateInterest, currency),
+          displayAmount(lateInterest),
         ]
           .map(csvCell)
           .join(","),

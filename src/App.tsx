@@ -141,38 +141,58 @@ function formatDisplayMoney(
   );
 }
 
-function displayedAmountFromMinor(
-  amountMinor: number,
-  state: AppState,
-  workspace: Workspace,
-): number {
+function editorCurrency(state: AppState, workspace: Workspace) {
   const rate = exchangeRateFor(state, workspace);
-  if (workspace.baseCurrency === workspace.displayCurrency || rate === null)
-    return amountMinor;
-  return convertMinorUnits(
-    amountMinor,
-    workspace.baseCurrency,
-    workspace.displayCurrency,
-    rate,
+  return {
+    base: workspace.baseCurrency,
+    currency:
+      rate === null ? workspace.baseCurrency : workspace.displayCurrency,
+    rate: rate ?? 1,
+  };
+}
+
+type EditorCurrency = ReturnType<typeof editorCurrency>;
+
+function editorAmount(amountMinor: number, conversion: EditorCurrency): string {
+  return amountFromMinor(
+    convertMinorUnits(
+      amountMinor,
+      conversion.base,
+      conversion.currency,
+      conversion.rate,
+    ),
+    conversion.currency,
   );
 }
 
-function minorUnitsFromDisplayedInput(
+function formatEditorMoney(
+  amountMinor: number,
+  conversion: EditorCurrency,
+  language: Language,
+): string {
+  return formatMoney(
+    convertMinorUnits(
+      amountMinor,
+      conversion.base,
+      conversion.currency,
+      conversion.rate,
+    ),
+    conversion.currency,
+    localeFor(language, conversion.currency),
+  );
+}
+
+function minorUnitsFromEditorInput(
   value: string,
-  state: AppState,
-  workspace: Workspace,
+  conversion: EditorCurrency,
 ): number {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return 0;
-  const displayMinor = toMinorUnits(amount, workspace.displayCurrency);
-  const rate = exchangeRateFor(state, workspace);
-  if (workspace.baseCurrency === workspace.displayCurrency || rate === null)
-    return displayMinor;
   return convertMinorUnits(
-    displayMinor,
-    workspace.displayCurrency,
-    workspace.baseCurrency,
-    1 / rate,
+    toMinorUnits(amount, conversion.currency),
+    conversion.currency,
+    conversion.base,
+    1 / conversion.rate,
   );
 }
 
@@ -194,8 +214,8 @@ function useLiveExchangeRate(
           ...current,
           exchangeRateCache: cacheExchangeRate(
             current.exchangeRateCache,
-            current.workspaces[current.activeMode].baseCurrency,
-            current.workspaces[current.activeMode].displayCurrency,
+            baseCurrency,
+            displayCurrency,
             rate,
           ),
         }))
@@ -366,6 +386,7 @@ function LedgerPage({
   onDeleteIncome: (entry: IncomeEntry) => void;
   t: (key: TranslationKey) => string;
 }) {
+  const shownCurrency = editorCurrency(state, workspace).currency;
   const locale = localeFor(state.language, workspace.displayCurrency);
   const aggregate = aggregateWorkspace(
     workspace.loans,
@@ -432,7 +453,7 @@ function LedgerPage({
         <div className="page-heading">
           <div>
             <p className="eyebrow">
-              {workspace.displayCurrency} · {t("app.estimateNotice")}
+              {shownCurrency} · {t("app.estimateNotice")}
             </p>
             <h1>{t("loans.title")}</h1>
           </div>
@@ -511,7 +532,7 @@ function LedgerPage({
     <section className="page-section">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">{workspace.displayCurrency}</p>
+          <p className="eyebrow">{shownCurrency}</p>
           <h1>{t("income.title")}</h1>
         </div>
         <button type="button" className="button primary" onClick={onAddIncome}>
@@ -609,6 +630,7 @@ function Dashboard({
   t: (key: TranslationKey) => string;
   go: (view: ViewName) => void;
 }) {
+  const shownCurrency = editorCurrency(state, workspace).currency;
   const locale = localeFor(state.language, workspace.displayCurrency);
   const aggregate = aggregateWorkspace(
     workspace.loans,
@@ -629,9 +651,9 @@ function Dashboard({
   const nextPayments = unpaidPayments.slice(0, 6);
   const money = (amount: number) => {
     const formatted = formatDisplayMoney(amount, state, workspace, locale);
-    return formatted.includes(workspace.displayCurrency)
+    return formatted.includes(shownCurrency)
       ? formatted
-      : `${formatted} ${workspace.displayCurrency}`;
+      : `${formatted} ${shownCurrency}`;
   };
   const highestRateLoan = [...workspace.loans].sort(
     (left, right) =>
@@ -674,8 +696,7 @@ function Dashboard({
       <div className="page-heading">
         <div>
           <p className="eyebrow">
-            {formatLocaleDate(todayDate(), state.language)} ·{" "}
-            {workspace.displayCurrency}
+            {formatLocaleDate(todayDate(), state.language)} · {shownCurrency}
           </p>
           <h1>{t("dashboard.title")}</h1>
           <p className="muted">
@@ -822,7 +843,7 @@ function Dashboard({
       <div className="board-heading">
         <div>
           <p className="eyebrow">
-            {t("common.loans")} · <span>{workspace.displayCurrency}</span>
+            {t("common.loans")} · <span>{shownCurrency}</span>
           </p>
           <h2>{t("dashboard.statusBoard")}</h2>
           <p className="small muted">{t("dashboard.boardCaption")}</p>
@@ -1051,15 +1072,16 @@ function LoanEditor({
   onSave: (loan: Loan) => Promise<boolean>;
   onClose: () => void;
 }) {
+  const [conversion] = useState(() => editorCurrency(state, workspace));
+  const initialPrincipal = loan
+    ? editorAmount(loan.principalMinor, conversion)
+    : "";
   const [fields, setFields] = useState<LoanDraftFields>(() =>
     loan
       ? {
           name: loan.name,
           description: loan.description,
-          principal: amountFromMinor(
-            displayedAmountFromMinor(loan.principalMinor, state, workspace),
-            workspace.displayCurrency,
-          ),
+          principal: initialPrincipal,
           termMonths: String(loan.termMonths),
           ratePercent: String(loan.rate * 100),
           rateBasis: loan.rateBasis,
@@ -1089,11 +1111,10 @@ function LoanEditor({
     id: loan?.id ?? "preview",
     name: fields.name,
     description: fields.description,
-    principalMinor: minorUnitsFromDisplayedInput(
-      fields.principal,
-      state,
-      workspace,
-    ),
+    principalMinor:
+      loan && fields.principal === initialPrincipal
+        ? loan.principalMinor
+        : minorUnitsFromEditorInput(fields.principal, conversion),
     termMonths: Number(fields.termMonths),
     rate: Number(fields.ratePercent) / 100,
     rateBasis: fields.rateBasis,
@@ -1178,13 +1199,16 @@ function LoanEditor({
             id="loan-principal"
             type="number"
             min="0"
-            step={workspace.displayCurrency === "COP" ? "1" : "0.01"}
+            step={10 ** -decimalPlaces(conversion.currency)}
             value={fields.principal}
             disabled={locked}
             onChange={(event) => update("principal", event.target.value)}
             aria-invalid={Boolean(errors.get("principalMinor"))}
           />
         </Field>
+        <p className="form-note wide">
+          {t("currency.input").replace("{currency}", conversion.currency)}
+        </p>
         <Field label={t("loans.term")} error={errors.get("termMonths")}>
           <input
             id="loan-term"
@@ -1279,22 +1303,12 @@ function LoanEditor({
           <span>{t("loans.payment")}</span>
           <strong>
             {preview[0]
-              ? formatDisplayMoney(
-                  preview[0].amountMinor,
-                  state,
-                  workspace,
-                  localeFor(language, workspace.displayCurrency),
-                )
+              ? formatEditorMoney(preview[0].amountMinor, conversion, language)
               : "—"}
           </strong>
           <span>
             {t("loans.totalInterest")}:{" "}
-            {formatDisplayMoney(
-              totalInterest,
-              state,
-              workspace,
-              localeFor(language, workspace.displayCurrency),
-            )}
+            {formatEditorMoney(totalInterest, conversion, language)}
           </span>
         </div>
         {!locked && (
@@ -1393,15 +1407,16 @@ function IncomeEditor({
   onSave: (entry: IncomeEntry) => Promise<boolean>;
   onClose: () => void;
 }) {
+  const [conversion] = useState(() => editorCurrency(state, workspace));
+  const initialAmount = entry
+    ? editorAmount(entry.amountMinor, conversion)
+    : "";
   const [fields, setFields] = useState<IncomeDraftFields>(() =>
     entry
       ? {
           source: entry.source,
           description: entry.description,
-          amount: amountFromMinor(
-            displayedAmountFromMinor(entry.amountMinor, state, workspace),
-            workspace.displayCurrency,
-          ),
+          amount: initialAmount,
           dateReceived: entry.dateReceived,
           frequency: entry.frequency,
         }
@@ -1414,11 +1429,10 @@ function IncomeEditor({
         },
   );
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
-  const amountMinor = minorUnitsFromDisplayedInput(
-    fields.amount,
-    state,
-    workspace,
-  );
+  const amountMinor =
+    entry && fields.amount === initialAmount
+      ? entry.amountMinor
+      : minorUnitsFromEditorInput(fields.amount, conversion);
   const [validation] = [validateIncome({ ...fields, amountMinor })];
   const errors = new Map(
     issues.map((issue) => [issue.field, validationMessage(issue, t)]),
@@ -1488,12 +1502,15 @@ function IncomeEditor({
             id="income-amount"
             type="number"
             min="0"
-            step={workspace.displayCurrency === "COP" ? "1" : "0.01"}
+            step={10 ** -decimalPlaces(conversion.currency)}
             value={fields.amount}
             onChange={(event) => update("amount", event.target.value)}
             aria-invalid={Boolean(errors.get("amountMinor"))}
           />
         </Field>
+        <p className="form-note wide">
+          {t("currency.input").replace("{currency}", conversion.currency)}
+        </p>
         <Field label={t("income.date")} error={errors.get("dateReceived")}>
           <input
             id="income-date"
@@ -1896,13 +1913,15 @@ export default function App() {
   }
 
   function downloadCsv() {
-    if (!workspace) return;
+    if (!workspace || !state) return;
+    const conversion = editorCurrency(state, workspace);
     const csv = buildAmortizationCsv(
       workspace.loans,
       workspace.payments,
       workspace.baseCurrency,
       language,
       todayDate(),
+      { currency: conversion.currency, rate: conversion.rate },
     );
     const url = URL.createObjectURL(
       new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }),
@@ -2385,6 +2404,7 @@ function CalendarPage({
   onMarkPaid: (loanId: string, index: number) => void;
   t: (key: TranslationKey) => string;
 }) {
+  const shownCurrency = editorCurrency(state, workspace).currency;
   const locale = localeFor(state.language, workspace.displayCurrency);
   const aggregate = aggregateWorkspace(
     workspace.loans,
@@ -2459,7 +2479,7 @@ function CalendarPage({
       <div className="page-heading">
         <div>
           <p className="eyebrow">
-            {workspace.displayCurrency} · {t("app.estimateNotice")}
+            {shownCurrency} · {t("app.estimateNotice")}
           </p>
           <h1>{t("calendar.title")}</h1>
         </div>
@@ -2637,6 +2657,7 @@ function ReportsPage({
   onPrint: () => void;
   t: (key: TranslationKey) => string;
 }) {
+  const shownCurrency = editorCurrency(state, workspace).currency;
   const locale = localeFor(state.language, workspace.displayCurrency);
   const nextFive = aggregate.calendarEntries
     .filter((entry) => entry.status !== "Paid")
@@ -2645,7 +2666,7 @@ function ReportsPage({
     <section className="page-section">
       <div className="page-heading no-print">
         <div>
-          <p className="eyebrow">{workspace.displayCurrency}</p>
+          <p className="eyebrow">{shownCurrency}</p>
           <h1>{t("reports.title")}</h1>
         </div>
         <div className="report-actions">
@@ -2662,7 +2683,7 @@ function ReportsPage({
           <div className="brand-mark">b.</div>
           <div>
             <p className="eyebrow">
-              {t("app.name")} · {workspace.displayCurrency}
+              {t("app.name")} · {shownCurrency}
             </p>
             <h1>{t("reports.title")}</h1>
             <p>

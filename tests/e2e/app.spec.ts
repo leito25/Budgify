@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -172,6 +172,90 @@ test("currency display converts values and persists independently per workspace"
   await expect(page.getByRole("combobox", { name: "Currency" })).toHaveValue(
     "COP",
   );
+});
+
+test("exports converted schedules and preserves base amounts after editing", async ({
+  page,
+}) => {
+  await page.route("https://open.er-api.com/v6/latest/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ result: "success", rates: { COP: 4000 } }),
+    });
+  });
+  await signIn(page);
+  await page.getByRole("link", { name: "Reports" }).click();
+
+  async function downloadCsv() {
+    const downloadPromise = page.waitForEvent("download");
+    await page
+      .getByRole("button", { name: "Download amortization CSV" })
+      .click();
+    const download = await downloadPromise;
+    const path = await download.path();
+    return (await readFile(path, "utf8")).replace(/^\uFEFF/, "");
+  }
+
+  const base = await downloadCsv();
+  await page.getByRole("combobox", { name: "Currency" }).selectOption("COP");
+  const convertedPrincipal = await page.evaluate(() =>
+    new Intl.NumberFormat("en-CO", {
+      style: "currency",
+      currency: "COP",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(32_800_000),
+  );
+  await expect(page.locator(".print-summary")).toContainText(
+    convertedPrincipal,
+  );
+  const converted = await downloadCsv();
+  expect(converted.split("\r\n")[0]).toContain("Payment (COP)");
+  const baseColumns = base.split("\r\n")[1].split('","');
+  const convertedColumns = converted.split("\r\n")[1].split('","');
+  for (const index of [4, 5, 6, 7, 9]) {
+    expect(Number(convertedColumns[index].replaceAll('"', ""))).toBe(
+      Math.round(Number(baseColumns[index].replaceAll('"', "")) * 4000),
+    );
+  }
+
+  await page.getByRole("link", { name: "Loans & Installments" }).click();
+  const loan = page.getByRole("row").filter({ hasText: "Grocery installment" });
+  await loan.getByRole("button", { name: "Edit" }).click();
+  await page.getByLabel("Loan name").fill("Renamed grocery");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(
+    page.getByRole("row").filter({ hasText: "Renamed grocery" }),
+  ).toBeVisible();
+  await page.getByRole("combobox", { name: "Currency" }).selectOption("USD");
+  await page
+    .getByRole("row")
+    .filter({ hasText: "Renamed grocery" })
+    .getByRole("button", { name: "Edit" })
+    .click();
+  await expect(page.getByLabel("Principal")).toHaveValue("2700.00");
+});
+
+test("exports base currency when a display conversion is unavailable", async ({
+  page,
+}) => {
+  await page.route("https://open.er-api.com/v6/latest/**", async (route) => {
+    await route.fulfill({ status: 503 });
+  });
+  await signIn(page);
+  await page.getByRole("combobox", { name: "Currency" }).selectOption("COP");
+  await expect(
+    page.getByText(
+      "Conversion is unavailable until an exchange rate can be fetched.",
+    ),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Reports" }).click();
+  await expect(page.locator(".print-summary")).toContainText("USD");
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download amortization CSV" }).click();
+  const download = await downloadPromise;
+  const csv = await readFile(await download.path(), "utf8");
+  expect(csv.split("\r\n")[0]).toContain("Payment (USD)");
 });
 
 test("theme toggle is available across sign-in and every product section", async ({

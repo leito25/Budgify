@@ -9,6 +9,9 @@ import {
   within,
 } from "@testing-library/react";
 import App from "../../src/App";
+import type { AppState } from "../../src/storage/model";
+import { LocalStorageBackend } from "../../src/storage/fallback";
+import { StorageRepository } from "../../src/storage/repository";
 
 Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
   configurable: true,
@@ -56,7 +59,227 @@ async function navigate(name: string) {
   await screen.findAllByRole("heading", { name });
 }
 
+function savedState(): AppState {
+  const raw = localStorage.getItem("budgify-state");
+  if (!raw) throw new Error("Missing saved state");
+  return (JSON.parse(raw) as { data: AppState }).data;
+}
+
 describe("app workflows", () => {
+  it.each([
+    {
+      region: "US",
+      display: "COP",
+      currency: "USD",
+      original: "2700.00",
+      input: "123.45",
+      minor: 12345,
+    },
+    {
+      region: "CO",
+      display: "USD",
+      currency: "COP",
+      original: "270000",
+      input: "12345",
+      minor: 12345,
+    },
+  ])(
+    "uses $currency in editors when conversion is unavailable",
+    async ({ region, display, currency, original, input, minor }) => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+      await signIn("personal", region);
+      fireEvent.change(screen.getByLabelText("Currency"), {
+        target: { value: display },
+      });
+      await screen.findByText(
+        "Conversion is unavailable until an exchange rate can be fetched.",
+      );
+
+      await navigate("Loans & Installments");
+      const loan = screen.getByRole("row", { name: /Grocery installment/ });
+      fireEvent.click(within(loan).getByRole("button", { name: "Edit" }));
+      expect(screen.getByText(`Enter amounts in ${currency}.`)).toBeTruthy();
+      expect(
+        (screen.getByLabelText("Principal") as HTMLInputElement).value,
+      ).toBe(original);
+      fireEvent.change(screen.getByLabelText("Loan name"), {
+        target: { value: "Renamed grocery" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await screen.findByRole("row", { name: /Renamed grocery/ });
+      expect(savedState().workspaces.personal.loans[0].principalMinor).toBe(
+        270000,
+      );
+
+      const renamed = screen.getByRole("row", { name: /Renamed grocery/ });
+      fireEvent.click(within(renamed).getByRole("button", { name: "Edit" }));
+      fireEvent.change(screen.getByLabelText("Principal"), {
+        target: { value: input },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() =>
+        expect(savedState().workspaces.personal.loans[0].principalMinor).toBe(
+          minor,
+        ),
+      );
+
+      await navigate("Income & Balance");
+      const income = screen.getByRole("row", { name: /Monthly salary/ });
+      fireEvent.click(within(income).getByRole("button", { name: "Edit" }));
+      expect(screen.getByText(`Enter amounts in ${currency}.`)).toBeTruthy();
+      fireEvent.change(screen.getByLabelText("Amount"), {
+        target: { value: input },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() =>
+        expect(savedState().workspaces.personal.income[0].amountMinor).toBe(
+          minor,
+        ),
+      );
+    },
+  );
+
+  it("preserves an unchanged base amount when converted display rounding is lossy", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ result: "success", rates: { USD: 0.0002511 } }),
+            { status: 200 },
+          ),
+        ),
+    );
+    await signIn("personal", "CO");
+    fireEvent.change(screen.getByLabelText("Currency"), {
+      target: { value: "USD" },
+    });
+    await waitFor(() =>
+      expect(savedState().exchangeRateCache["COP:USD"]).toBe(0.0002511),
+    );
+    await navigate("Income & Balance");
+    const income = screen.getByRole("row", { name: /Monthly salary/ });
+    fireEvent.click(within(income).getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Source"), {
+      target: { value: "Renamed salary" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByRole("row", { name: /Renamed salary/ });
+    expect(savedState().workspaces.personal.income[0].amountMinor).toBe(480000);
+    await navigate("Loans & Installments");
+    const loan = screen.getByRole("row", { name: /Grocery installment/ });
+    fireEvent.click(within(loan).getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Loan name"), {
+      target: { value: "Renamed grocery" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByRole("row", { name: /Renamed grocery/ });
+    expect(savedState().workspaces.personal.loans[0].principalMinor).toBe(
+      270000,
+    );
+  });
+
+  it("keeps the editor currency stable if a rate arrives while editing", async () => {
+    let respond!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(
+        () =>
+          new Promise<Response>((resolve) => {
+            respond = resolve;
+          }),
+      ),
+    );
+    await signIn();
+    fireEvent.change(screen.getByLabelText("Currency"), {
+      target: { value: "COP" },
+    });
+    await waitFor(() => expect(respond).toBeDefined());
+    await navigate("Income & Balance");
+    const income = screen.getByRole("row", { name: /Monthly salary/ });
+    fireEvent.click(within(income).getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Amount"), {
+      target: { value: "123.45" },
+    });
+    respond(
+      new Response(
+        JSON.stringify({ result: "success", rates: { COP: 4000 } }),
+        { status: 200 },
+      ),
+    );
+    await waitFor(() =>
+      expect(savedState().exchangeRateCache["USD:COP"]).toBe(4000),
+    );
+    expect(screen.getByText("Enter amounts in USD.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(savedState().workspaces.personal.income[0].amountMinor).toBe(
+        12345,
+      ),
+    );
+  });
+
+  it("caches a delayed rate under its requested pair after a queued workspace switch", async () => {
+    let respond!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(
+        () =>
+          new Promise<Response>((resolve) => {
+            respond = resolve;
+          }),
+      ),
+    );
+    await signIn();
+    fireEvent.change(screen.getByLabelText("Currency"), {
+      target: { value: "COP" },
+    });
+    await waitFor(() => expect(respond).toBeDefined());
+
+    let release!: () => void;
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let started!: () => void;
+    const startedWrite = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const originalSet = LocalStorageBackend.prototype.set;
+    vi.spyOn(LocalStorageBackend.prototype, "set").mockImplementation(
+      async function (this: LocalStorageBackend, key, value) {
+        const state = (JSON.parse(value) as { data: AppState }).data;
+        if (
+          key === "budgify-state" &&
+          state.activeMode === "business" &&
+          !state.exchangeRateCache["USD:COP"]
+        ) {
+          started();
+          await blocked;
+        }
+        return originalSet.call(this, key, value);
+      },
+    );
+    const updates = vi.spyOn(StorageRepository.prototype, "update");
+    fireEvent.change(screen.getByLabelText("Workspace"), {
+      target: { value: "business" },
+    });
+    await startedWrite;
+    respond(
+      new Response(
+        JSON.stringify({ result: "success", rates: { COP: 4000 } }),
+        { status: 200 },
+      ),
+    );
+    await waitFor(() => expect(updates).toHaveBeenCalledTimes(2));
+    release();
+    await waitFor(() =>
+      expect(savedState().exchangeRateCache["USD:COP"]).toBe(4000),
+    );
+    expect(savedState().activeMode).toBe("business");
+    expect(savedState().exchangeRateCache["COP:COP"]).toBeUndefined();
+  });
+
   it("shows the selected display currency without changing stored base values", async () => {
     vi.stubGlobal(
       "fetch",

@@ -22,7 +22,7 @@ Tables support search, sortable columns, create/edit/delete actions, and confirm
 
 - The app uses one local, name-only profile and a simulated session. There is no password or account authentication.
 - During setup, the user chooses a name, a display currency, and a workspace type. Personal and Small Business modes have separate local data and remember their display currency separately. Currency does not depend on workspace type.
-- Changing a workspace's display currency converts displayed amounts using the applicable exchange rate. Stored amounts remain in their original/base currency and are not rewritten when the display currency changes.
+- Changing a workspace's display currency converts displayed amounts and CSV exports using the applicable exchange rate. Stored amounts remain in their original/base currency and are not rewritten when the display currency changes. If no rate is available, amounts, editors and exports use the base currency.
 - Small Business blocks creation of a fourth active loan unless the user accepts a simulated membership upgrade. Paid-off loans do not count toward the limit. No real payment is collected.
 
 ## Financial behavior

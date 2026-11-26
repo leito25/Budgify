@@ -153,6 +153,7 @@ export const en = {
   "common.currency": "Currency",
   "currency.unavailable":
     "Conversion is unavailable until an exchange rate can be fetched.",
+  "currency.input": "Enter amounts in {currency}.",
   "common.dueDate": "Due date",
   "common.amount": "Amount",
   "common.principal": "Principal",
