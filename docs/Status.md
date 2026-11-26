@@ -37,6 +37,7 @@
 - Stabilized ledger screenshot capture by waiting for navigation; reran the full check and captured all four screenshots.
 - Addressed dark-mode review findings with serialized saves, contrast-visible controls, and a narrow-screen toolbar; added storage and cross-browser regression tests.
 - Added the Deploy-stage recurring async-state review rule and recorded a clean full-check result.
+- Implemented workspace-independent base/display currencies with schema-v4 migration, persistent live-rate caching, display-only conversion, localized fallback messaging, setup and toolbar controls, and cross-workspace reload coverage.
 
 ## Remaining release validation
 

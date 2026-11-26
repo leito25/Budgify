@@ -47,3 +47,23 @@ export function formatMoney(
     maximumFractionDigits: decimalPlaces(currency),
   }).format(amountMinor / 10 ** decimalPlaces(currency));
 }
+
+export function convertMinorUnits(
+  amountMinor: number,
+  baseCurrency: Currency,
+  displayCurrency: Currency,
+  rate: number,
+): number {
+  if (
+    !Number.isSafeInteger(amountMinor) ||
+    !Number.isFinite(rate) ||
+    rate <= 0
+  ) {
+    throw new RangeError(
+      "Money conversion requires valid minor units and a positive rate.",
+    );
+  }
+  if (baseCurrency === displayCurrency) return amountMinor;
+  const baseAmount = amountMinor / 10 ** decimalPlaces(baseCurrency);
+  return toMinorUnits(baseAmount * rate, displayCurrency);
+}

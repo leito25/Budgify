@@ -151,6 +151,8 @@ export const en = {
   "common.invalidTerm": "Enter a whole number greater than zero.",
   "common.status": "Status",
   "common.currency": "Currency",
+  "currency.unavailable":
+    "Conversion is unavailable until an exchange rate can be fetched.",
   "common.dueDate": "Due date",
   "common.amount": "Amount",
   "common.principal": "Principal",

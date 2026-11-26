@@ -241,7 +241,7 @@ describe("storage repository", () => {
 
     const repository = new StorageRepository([backend]);
     const loaded = await repository.load(createInitialState("2026-11-23"));
-    expect(loaded.schemaVersion).toBe(3);
+    expect(loaded.schemaVersion).toBe(4);
     expect(loaded.theme).toBe("light");
     expect(loaded.userName).toBe("Alex");
     expect(loaded).toMatchObject({
@@ -263,6 +263,52 @@ describe("storage repository", () => {
     );
     expect(restored.theme).toBe("dark");
     expect(restored.workspaces).toEqual(loaded.workspaces);
+  });
+
+  it("migrates schema-v3 currency data without rewriting base monetary values", async () => {
+    const backend = new TestBackend("indexeddb");
+    const state = createInitialState("2026-11-23");
+    const schemaV3 = {
+      ...state,
+      schemaVersion: 3,
+      exchangeRateCache: undefined,
+      workspaces: {
+        personal: {
+          ...state.workspaces.personal,
+          currency: "COP",
+        },
+        business: {
+          ...state.workspaces.business,
+          currency: "USD",
+        },
+      },
+    } as unknown as Record<string, unknown>;
+    delete schemaV3.exchangeRateCache;
+    delete (schemaV3.workspaces as Record<string, Record<string, unknown>>)
+      .personal.baseCurrency;
+    delete (schemaV3.workspaces as Record<string, Record<string, unknown>>)
+      .personal.displayCurrency;
+    delete (schemaV3.workspaces as Record<string, Record<string, unknown>>)
+      .business.baseCurrency;
+    delete (schemaV3.workspaces as Record<string, Record<string, unknown>>)
+      .business.displayCurrency;
+    const personalPrincipal = state.workspaces.personal.loans[0].principalMinor;
+    const original = JSON.stringify({ schemaVersion: 3, data: schemaV3 });
+    await backend.set("budgify-state", original);
+
+    const repository = new StorageRepository([backend]);
+    const loaded = await repository.load(createInitialState("2026-11-23"));
+
+    expect(loaded.schemaVersion).toBe(4);
+    expect(loaded.exchangeRateCache).toEqual({});
+    expect(loaded.workspaces.personal.baseCurrency).toBe("COP");
+    expect(loaded.workspaces.personal.displayCurrency).toBe("COP");
+    expect(loaded.workspaces.business.baseCurrency).toBe("USD");
+    expect(loaded.workspaces.business.displayCurrency).toBe("USD");
+    expect(loaded.workspaces.personal.loans[0].principalMinor).toBe(
+      personalPrincipal,
+    );
+    expect(await backend.get("budgify-state-backup-v3")).toBe(original);
   });
 
   it("preserves a profile and its data when the session is ended and restored", async () => {

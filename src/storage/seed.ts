@@ -42,7 +42,8 @@ function createLoan(
 function createWorkspace(
   mode: WorkspaceMode,
   region: Region,
-  currency: Currency,
+  baseCurrency: Currency,
+  displayCurrency: Currency,
   today: string,
 ): Workspace {
   const loans =
@@ -138,7 +139,8 @@ function createWorkspace(
   return {
     mode,
     region,
-    currency,
+    baseCurrency,
+    displayCurrency,
     membershipUpgraded: false,
     loans,
     payments: [],
@@ -146,9 +148,21 @@ function createWorkspace(
   };
 }
 
+function currencyForMode(
+  mode: WorkspaceMode,
+  regions: Partial<Record<WorkspaceMode, Region>>,
+  currencies: Partial<Record<WorkspaceMode, Currency>>,
+): Currency {
+  if (currencies[mode]) return currencies[mode] as Currency;
+  return (regions[mode] ?? (mode === "personal" ? "US" : "CO")) === "CO"
+    ? "COP"
+    : "USD";
+}
+
 export function createInitialState(
   today = new Date().toISOString().slice(0, 10),
   regions: Partial<Record<WorkspaceMode, Region>> = {},
+  currencies: Partial<Record<WorkspaceMode, Currency>> = {},
 ): AppState {
   parseDateOnly(today);
   return {
@@ -163,16 +177,19 @@ export function createInitialState(
       personal: createWorkspace(
         "personal",
         regions.personal ?? "US",
-        (regions.personal ?? "US") === "CO" ? "COP" : "USD",
+        currencyForMode("personal", regions, currencies),
+        currencyForMode("personal", regions, currencies),
         today,
       ),
       business: createWorkspace(
         "business",
         regions.business ?? "CO",
-        (regions.business ?? "CO") === "CO" ? "COP" : "USD",
+        currencyForMode("business", regions, currencies),
+        currencyForMode("business", regions, currencies),
         today,
       ),
     },
+    exchangeRateCache: {},
     gameProgress: {},
   };
 }

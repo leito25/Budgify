@@ -9,8 +9,11 @@ describe("seed data", () => {
     const personal = state.workspaces.personal;
     const business = state.workspaces.business;
 
-    expect(personal.currency).toBe("USD");
-    expect(business.currency).toBe("COP");
+    expect(personal.baseCurrency).toBe("USD");
+    expect(personal.displayCurrency).toBe("USD");
+    expect(business.baseCurrency).toBe("COP");
+    expect(business.displayCurrency).toBe("COP");
+    expect(personal.displayCurrency).not.toBe(business.displayCurrency);
     expect(
       personal.loans.some((loan) =>
         loan.name.toLowerCase().includes("grocery"),

@@ -19,6 +19,12 @@ import {
 } from "./domain/game/engine";
 import { settleInstallment } from "./domain/late-interest";
 import { formatMoney, toMinorUnits, decimalPlaces } from "./domain/money";
+import { convertMinorUnits } from "./domain/money";
+import {
+  cacheExchangeRate,
+  fetchExchangeRate,
+  getCachedExchangeRate,
+} from "./domain/exchange-rates";
 import { buildAmortizationCsv } from "./domain/reports";
 import { rateToMonthly } from "./domain/rates";
 import { generateSchedule } from "./domain/schedule";
@@ -105,9 +111,103 @@ function amountFromMinor(amountMinor: number, currency: Currency): string {
   );
 }
 
-function minorUnitsFromInput(value: string, currency: Currency): number {
+function exchangeRateFor(state: AppState, workspace: Workspace): number | null {
+  return getCachedExchangeRate(
+    state.exchangeRateCache,
+    workspace.baseCurrency,
+    workspace.displayCurrency,
+  );
+}
+
+function formatDisplayMoney(
+  amountMinor: number,
+  state: AppState,
+  workspace: Workspace,
+  locale: string,
+): string {
+  const rate = exchangeRateFor(state, workspace);
+  if (workspace.baseCurrency === workspace.displayCurrency || rate === null) {
+    return formatMoney(amountMinor, workspace.baseCurrency, locale);
+  }
+  return formatMoney(
+    convertMinorUnits(
+      amountMinor,
+      workspace.baseCurrency,
+      workspace.displayCurrency,
+      rate,
+    ),
+    workspace.displayCurrency,
+    locale,
+  );
+}
+
+function displayedAmountFromMinor(
+  amountMinor: number,
+  state: AppState,
+  workspace: Workspace,
+): number {
+  const rate = exchangeRateFor(state, workspace);
+  if (workspace.baseCurrency === workspace.displayCurrency || rate === null)
+    return amountMinor;
+  return convertMinorUnits(
+    amountMinor,
+    workspace.baseCurrency,
+    workspace.displayCurrency,
+    rate,
+  );
+}
+
+function minorUnitsFromDisplayedInput(
+  value: string,
+  state: AppState,
+  workspace: Workspace,
+): number {
   const amount = Number(value);
-  return Number.isFinite(amount) ? toMinorUnits(amount, currency) : 0;
+  if (!Number.isFinite(amount)) return 0;
+  const displayMinor = toMinorUnits(amount, workspace.displayCurrency);
+  const rate = exchangeRateFor(state, workspace);
+  if (workspace.baseCurrency === workspace.displayCurrency || rate === null)
+    return displayMinor;
+  return convertMinorUnits(
+    displayMinor,
+    workspace.displayCurrency,
+    workspace.baseCurrency,
+    1 / rate,
+  );
+}
+
+function useLiveExchangeRate(
+  repository: StorageRepository | null,
+  baseCurrency: Currency | null,
+  displayCurrency: Currency | null,
+  setState: (next: AppState) => void,
+  setError: (message: string) => void,
+): void {
+  useEffect(() => {
+    if (!repository || !baseCurrency || !displayCurrency) return;
+    if (baseCurrency === displayCurrency) return;
+    let active = true;
+    void fetchExchangeRate(baseCurrency, displayCurrency).then((rate) => {
+      if (!active || rate === null) return;
+      void repository
+        .update((current) => ({
+          ...current,
+          exchangeRateCache: cacheExchangeRate(
+            current.exchangeRateCache,
+            current.workspaces[current.activeMode].baseCurrency,
+            current.workspaces[current.activeMode].displayCurrency,
+            rate,
+          ),
+        }))
+        .then(setState)
+        .catch((caught) =>
+          setError(caught instanceof Error ? caught.message : String(caught)),
+        );
+    });
+    return () => {
+      active = false;
+    };
+  }, [repository, baseCurrency, displayCurrency, setState, setError]);
 }
 
 function makeId(): string {
@@ -202,6 +302,25 @@ function statusBadge(status: LoanStatus, label: string) {
   );
 }
 
+function StorageBanner({
+  storageMode,
+  t,
+}: {
+  storageMode: StorageMode;
+  t: (key: TranslationKey) => string;
+}) {
+  if (storageMode === "indexeddb") return null;
+  return (
+    <div className={`storage-banner ${storageMode}`} role="status">
+      {t(
+        storageMode === "localstorage"
+          ? "storage.localstorage"
+          : "storage.memory",
+      )}
+    </div>
+  );
+}
+
 function validationMessage(
   issue: ValidationIssue,
   t: (key: TranslationKey) => string,
@@ -247,19 +366,18 @@ function LedgerPage({
   onDeleteIncome: (entry: IncomeEntry) => void;
   t: (key: TranslationKey) => string;
 }) {
-  const currency = workspace.currency;
-  const locale = localeFor(state.language, currency);
+  const locale = localeFor(state.language, workspace.displayCurrency);
   const aggregate = aggregateWorkspace(
     workspace.loans,
     workspace.payments,
     workspace.income,
-    currency,
+    workspace.baseCurrency,
     todayDate(),
   );
 
   if (view === "loans") {
     const rows = workspace.loans.map((loan) => {
-      const schedule = generateSchedule(loan, currency);
+      const schedule = generateSchedule(loan, workspace.baseCurrency);
       const payments = workspace.payments.filter(
         (payment) => payment.loanId === loan.id,
       );
@@ -288,13 +406,15 @@ function LedgerPage({
         key: "principal",
         label: t("loans.principal"),
         value: (row) => row.remaining,
-        render: (row) => formatMoney(row.remaining, currency, locale),
+        render: (row) =>
+          formatDisplayMoney(row.remaining, state, workspace, locale),
       },
       {
         key: "payment",
         label: t("loans.payment"),
         value: (row) => row.payment,
-        render: (row) => formatMoney(row.payment, currency, locale),
+        render: (row) =>
+          formatDisplayMoney(row.payment, state, workspace, locale),
       },
       {
         key: "next",
@@ -312,7 +432,7 @@ function LedgerPage({
         <div className="page-heading">
           <div>
             <p className="eyebrow">
-              {currency} · {t("app.estimateNotice")}
+              {workspace.displayCurrency} · {t("app.estimateNotice")}
             </p>
             <h1>{t("loans.title")}</h1>
           </div>
@@ -376,7 +496,8 @@ function LedgerPage({
       key: "amount",
       label: t("income.amount"),
       value: (row) => row.entry.amountMinor,
-      render: (row) => formatMoney(row.entry.amountMinor, currency, locale),
+      render: (row) =>
+        formatDisplayMoney(row.entry.amountMinor, state, workspace, locale),
     },
     {
       key: "date",
@@ -390,7 +511,7 @@ function LedgerPage({
     <section className="page-section">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">{currency}</p>
+          <p className="eyebrow">{workspace.displayCurrency}</p>
           <h1>{t("income.title")}</h1>
         </div>
         <button type="button" className="button primary" onClick={onAddIncome}>
@@ -400,11 +521,21 @@ function LedgerPage({
       <div className="metric-grid three">
         <Metric
           label={t("income.monthlyIncome")}
-          value={formatMoney(aggregate.recurringIncomeMinor, currency, locale)}
+          value={formatDisplayMoney(
+            aggregate.recurringIncomeMinor,
+            state,
+            workspace,
+            locale,
+          )}
         />
         <Metric
           label={t("income.oneTimeSnapshot")}
-          value={formatMoney(aggregate.oneTimeIncomeMinor, currency, locale)}
+          value={formatDisplayMoney(
+            aggregate.oneTimeIncomeMinor,
+            state,
+            workspace,
+            locale,
+          )}
         />
         <Metric
           label={t("income.debtToIncome")}
@@ -478,13 +609,12 @@ function Dashboard({
   t: (key: TranslationKey) => string;
   go: (view: ViewName) => void;
 }) {
-  const currency = workspace.currency;
-  const locale = localeFor(state.language, currency);
+  const locale = localeFor(state.language, workspace.displayCurrency);
   const aggregate = aggregateWorkspace(
     workspace.loans,
     workspace.payments,
     workspace.income,
-    currency,
+    workspace.baseCurrency,
     todayDate(),
   );
   const activeDebtMinor =
@@ -498,10 +628,10 @@ function Dashboard({
   );
   const nextPayments = unpaidPayments.slice(0, 6);
   const money = (amount: number) => {
-    const formatted = formatMoney(amount, currency, locale);
-    return formatted.includes(currency)
+    const formatted = formatDisplayMoney(amount, state, workspace, locale);
+    return formatted.includes(workspace.displayCurrency)
       ? formatted
-      : `${formatted} ${currency}`;
+      : `${formatted} ${workspace.displayCurrency}`;
   };
   const highestRateLoan = [...workspace.loans].sort(
     (left, right) =>
@@ -532,7 +662,7 @@ function Dashboard({
         .filter((payment) => payment.loanId === loan.id)
         .map((payment) => payment.installmentIndex),
     );
-    return generateSchedule(loan, currency).reduce(
+    return generateSchedule(loan, workspace.baseCurrency).reduce(
       (sum, installment) =>
         sum + (paid.has(installment.index) ? 0 : installment.principalMinor),
       0,
@@ -544,7 +674,8 @@ function Dashboard({
       <div className="page-heading">
         <div>
           <p className="eyebrow">
-            {formatLocaleDate(todayDate(), state.language)} · {currency}
+            {formatLocaleDate(todayDate(), state.language)} ·{" "}
+            {workspace.displayCurrency}
           </p>
           <h1>{t("dashboard.title")}</h1>
           <p className="muted">
@@ -595,9 +726,19 @@ function Dashboard({
           >
             <title id="breakdown-title">
               {t("dashboard.debtBreakdown")}:{" "}
-              {formatMoney(aggregate.principalRemainingMinor, currency, locale)}{" "}
+              {formatDisplayMoney(
+                aggregate.principalRemainingMinor,
+                state,
+                workspace,
+                locale,
+              )}{" "}
               {t("dashboard.principal")},{" "}
-              {formatMoney(aggregate.interestRemainingMinor, currency, locale)}{" "}
+              {formatDisplayMoney(
+                aggregate.interestRemainingMinor,
+                state,
+                workspace,
+                locale,
+              )}{" "}
               {t("dashboard.interest")}
             </title>
             <rect
@@ -640,7 +781,8 @@ function Dashboard({
           </div>
           <PaymentTimeline
             entries={unpaidPayments}
-            currency={currency}
+            state={state}
+            workspace={workspace}
             language={state.language}
             locale={locale}
             detailsLabel={t("dashboard.timelineDetails")}
@@ -659,10 +801,11 @@ function Dashboard({
                   ?.loanName
               }{" "}
               · {t("calendar.lateInterest")}:{" "}
-              {formatMoney(
+              {formatDisplayMoney(
                 nextPayments.find((entry) => entry.status === "Overdue")
                   ?.lateInterestMinor ?? 0,
-                currency,
+                state,
+                workspace,
                 locale,
               )}
             </p>
@@ -679,7 +822,7 @@ function Dashboard({
       <div className="board-heading">
         <div>
           <p className="eyebrow">
-            {t("common.loans")} · <span>{currency}</span>
+            {t("common.loans")} · <span>{workspace.displayCurrency}</span>
           </p>
           <h2>{t("dashboard.statusBoard")}</h2>
           <p className="small muted">{t("dashboard.boardCaption")}</p>
@@ -801,13 +944,15 @@ function Dashboard({
 
 function PaymentTimeline({
   entries,
-  currency,
+  state,
+  workspace,
   language,
   locale,
   detailsLabel,
 }: {
   entries: ReturnType<typeof aggregateWorkspace>["calendarEntries"];
-  currency: Currency;
+  state: AppState;
+  workspace: Workspace;
   language: Language;
   locale: string;
   detailsLabel: string;
@@ -828,7 +973,7 @@ function PaymentTimeline({
         aria-label={rows
           .map(
             ([month, amount]) =>
-              `${month}: ${formatMoney(amount, currency, locale)}`,
+              `${month}: ${formatDisplayMoney(amount, state, workspace, locale)}`,
           )
           .join("; ")}
       >
@@ -877,7 +1022,7 @@ function PaymentTimeline({
             {rows.map(([month, amount]) => (
               <tr key={month}>
                 <th>{month}</th>
-                <td>{formatMoney(amount, currency, locale)}</td>
+                <td>{formatDisplayMoney(amount, state, workspace, locale)}</td>
               </tr>
             ))}
           </tbody>
@@ -890,6 +1035,7 @@ function PaymentTimeline({
 function LoanEditor({
   loan,
   locked,
+  state,
   workspace,
   language,
   t,
@@ -898,6 +1044,7 @@ function LoanEditor({
 }: {
   loan?: Loan;
   locked: boolean;
+  state: AppState;
   workspace: Workspace;
   language: Language;
   t: (key: TranslationKey) => string;
@@ -909,7 +1056,10 @@ function LoanEditor({
       ? {
           name: loan.name,
           description: loan.description,
-          principal: amountFromMinor(loan.principalMinor, workspace.currency),
+          principal: amountFromMinor(
+            displayedAmountFromMinor(loan.principalMinor, state, workspace),
+            workspace.displayCurrency,
+          ),
           termMonths: String(loan.termMonths),
           ratePercent: String(loan.rate * 100),
           rateBasis: loan.rateBasis,
@@ -939,7 +1089,11 @@ function LoanEditor({
     id: loan?.id ?? "preview",
     name: fields.name,
     description: fields.description,
-    principalMinor: minorUnitsFromInput(fields.principal, workspace.currency),
+    principalMinor: minorUnitsFromDisplayedInput(
+      fields.principal,
+      state,
+      workspace,
+    ),
     termMonths: Number(fields.termMonths),
     rate: Number(fields.ratePercent) / 100,
     rateBasis: fields.rateBasis,
@@ -951,7 +1105,7 @@ function LoanEditor({
   const validationIssues = validateLoan(loanDraft);
   const preview =
     validationIssues.length === 0
-      ? generateSchedule(loanDraft, workspace.currency)
+      ? generateSchedule(loanDraft, workspace.baseCurrency)
       : [];
   const totalInterest = preview.reduce(
     (sum, installment) => sum + installment.interestMinor,
@@ -1024,7 +1178,7 @@ function LoanEditor({
             id="loan-principal"
             type="number"
             min="0"
-            step={workspace.currency === "COP" ? "1" : "0.01"}
+            step={workspace.displayCurrency === "COP" ? "1" : "0.01"}
             value={fields.principal}
             disabled={locked}
             onChange={(event) => update("principal", event.target.value)}
@@ -1125,19 +1279,21 @@ function LoanEditor({
           <span>{t("loans.payment")}</span>
           <strong>
             {preview[0]
-              ? formatMoney(
+              ? formatDisplayMoney(
                   preview[0].amountMinor,
-                  workspace.currency,
-                  localeFor(language, workspace.currency),
+                  state,
+                  workspace,
+                  localeFor(language, workspace.displayCurrency),
                 )
               : "—"}
           </strong>
           <span>
             {t("loans.totalInterest")}:{" "}
-            {formatMoney(
+            {formatDisplayMoney(
               totalInterest,
-              workspace.currency,
-              localeFor(language, workspace.currency),
+              state,
+              workspace,
+              localeFor(language, workspace.displayCurrency),
             )}
           </span>
         </div>
@@ -1224,12 +1380,14 @@ function Field({
 
 function IncomeEditor({
   entry,
+  state,
   workspace,
   t,
   onSave,
   onClose,
 }: {
   entry?: IncomeEntry;
+  state: AppState;
   workspace: Workspace;
   t: (key: TranslationKey) => string;
   onSave: (entry: IncomeEntry) => Promise<boolean>;
@@ -1240,7 +1398,10 @@ function IncomeEditor({
       ? {
           source: entry.source,
           description: entry.description,
-          amount: amountFromMinor(entry.amountMinor, workspace.currency),
+          amount: amountFromMinor(
+            displayedAmountFromMinor(entry.amountMinor, state, workspace),
+            workspace.displayCurrency,
+          ),
           dateReceived: entry.dateReceived,
           frequency: entry.frequency,
         }
@@ -1253,7 +1414,11 @@ function IncomeEditor({
         },
   );
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
-  const amountMinor = minorUnitsFromInput(fields.amount, workspace.currency);
+  const amountMinor = minorUnitsFromDisplayedInput(
+    fields.amount,
+    state,
+    workspace,
+  );
   const [validation] = [validateIncome({ ...fields, amountMinor })];
   const errors = new Map(
     issues.map((issue) => [issue.field, validationMessage(issue, t)]),
@@ -1323,7 +1488,7 @@ function IncomeEditor({
             id="income-amount"
             type="number"
             min="0"
-            step={workspace.currency === "COP" ? "1" : "0.01"}
+            step={workspace.displayCurrency === "COP" ? "1" : "0.01"}
             value={fields.amount}
             onChange={(event) => update("amount", event.target.value)}
             aria-invalid={Boolean(errors.get("amountMinor"))}
@@ -1365,6 +1530,7 @@ function IncomeEditor({
   );
 }
 
+// eslint-disable-next-line complexity
 export default function App() {
   const [repository, setRepository] = useState<StorageRepository | null>(null);
   const [state, setState] = useState<AppState | null>(null);
@@ -1429,10 +1595,18 @@ export default function App() {
         workspace.loans,
         workspace.payments,
         workspace.income,
-        workspace.currency,
+        workspace.baseCurrency,
         todayDate(),
       )
     : null;
+
+  useLiveExchangeRate(
+    repository,
+    workspace?.baseCurrency ?? null,
+    workspace?.displayCurrency ?? null,
+    setState,
+    setError,
+  );
 
   async function persist(
     update: (current: AppState) => AppState,
@@ -1460,16 +1634,27 @@ export default function App() {
     setView(nextView);
   }
 
-  async function signIn(name: string, region: Region, mode: WorkspaceMode) {
+  async function signIn(
+    name: string,
+    region: Region,
+    mode: WorkspaceMode,
+    currency: Currency,
+  ) {
     await persist((current) => {
       if (!current.hasSignedIn) {
-        const seeded = createInitialState(todayDate(), { [mode]: region });
+        const seeded = createInitialState(
+          todayDate(),
+          { [mode]: region },
+          { [mode]: currency },
+        );
         seeded.userName = name.trim();
         seeded.isSignedIn = true;
         seeded.activeMode = mode;
         seeded.language = current.language;
         seeded.theme = current.theme;
         seeded.hasSignedIn = true;
+        seeded.workspaces[mode].baseCurrency = currency;
+        seeded.workspaces[mode].displayCurrency = currency;
         return seeded;
       }
       return {
@@ -1594,7 +1779,7 @@ export default function App() {
     if (!workspace) return;
     const loan = workspace.loans.find((item) => item.id === loanId);
     if (!loan) return;
-    const installment = generateSchedule(loan, workspace.currency).find(
+    const installment = generateSchedule(loan, workspace.baseCurrency).find(
       (item) => item.index === installmentIndex,
     );
     if (!installment) return;
@@ -1653,6 +1838,22 @@ export default function App() {
     await persist((current) => ({ ...current, theme: nextTheme }));
   }
 
+  async function updateDisplayCurrency(nextCurrency: Currency) {
+    await persist((current) => {
+      const activeWorkspace = current.workspaces[current.activeMode];
+      return {
+        ...current,
+        workspaces: {
+          ...current.workspaces,
+          [current.activeMode]: {
+            ...activeWorkspace,
+            displayCurrency: nextCurrency,
+          },
+        },
+      };
+    });
+  }
+
   async function acceptUpgrade() {
     const accepted = await persist((current) => ({
       ...current,
@@ -1699,7 +1900,7 @@ export default function App() {
     const csv = buildAmortizationCsv(
       workspace.loans,
       workspace.payments,
-      workspace.currency,
+      workspace.baseCurrency,
       language,
       todayDate(),
     );
@@ -1776,15 +1977,13 @@ export default function App() {
     if (!state || !aggregate) return null;
     return (
       <>
-        {storageMode !== "indexeddb" && (
-          <div className={`storage-banner ${storageMode}`} role="status">
-            {t(
-              storageMode === "localstorage"
-                ? "storage.localstorage"
-                : "storage.memory",
-            )}
-          </div>
-        )}
+        <StorageBanner storageMode={storageMode} t={t} />
+        {activeWorkspace.baseCurrency !== activeWorkspace.displayCurrency &&
+          exchangeRateFor(state, activeWorkspace) === null && (
+            <div className="storage-banner" role="status">
+              {t("currency.unavailable")}
+            </div>
+          )}
         {error && (
           <div className="error-banner" role="alert">
             {error}
@@ -1853,11 +2052,13 @@ export default function App() {
   }
 
   function renderDialogs() {
+    if (!state) return null;
     return (
       <>
         {loanDialog && (
           <LoanEditor
             loan={loanDialog === "new" ? undefined : loanDialog}
+            state={state}
             locked={
               loanDialog !== "new" &&
               activeWorkspace.payments.some(
@@ -1874,6 +2075,7 @@ export default function App() {
         {incomeDialog && (
           <IncomeEditor
             entry={incomeDialog === "new" ? undefined : incomeDialog}
+            state={state}
             workspace={activeWorkspace}
             t={t}
             onSave={saveIncome}
@@ -1934,12 +2136,21 @@ export default function App() {
                 void switchMode(event.target.value as WorkspaceMode)
               }
             >
-              <option value="personal">
-                {t("workspace.personal")} · {state.workspaces.personal.currency}
-              </option>
-              <option value="business">
-                {t("workspace.business")} · {state.workspaces.business.currency}
-              </option>
+              <option value="personal">{t("workspace.personal")}</option>
+              <option value="business">{t("workspace.business")}</option>
+            </select>
+          </label>
+          <label className="visually-group">
+            <span className="sr-only">{t("common.currency")}</span>
+            <select
+              aria-label={t("common.currency")}
+              value={state.workspaces[state.activeMode].displayCurrency}
+              onChange={(event) =>
+                void updateDisplayCurrency(event.target.value as Currency)
+              }
+            >
+              <option value="COP">COP</option>
+              <option value="USD">USD</option>
             </select>
           </label>
           <label className="visually-group">
@@ -2047,6 +2258,7 @@ function SignIn({
     name: string,
     region: Region,
     mode: WorkspaceMode,
+    currency: Currency,
   ) => Promise<void>;
   onLanguage: (language: Language) => Promise<void>;
   onTheme: (theme: Theme) => Promise<void>;
@@ -2058,13 +2270,16 @@ function SignIn({
     state.workspaces[state.activeMode].region,
   );
   const [mode, setMode] = useState<WorkspaceMode>(state.activeMode);
+  const [currency, setCurrency] = useState<Currency>(
+    state.workspaces[state.activeMode].baseCurrency,
+  );
   return (
     <main className="signin-screen">
       <form
         className="signin-card"
         onSubmit={(event) => {
           event.preventDefault();
-          if (name.trim()) void onSignIn(name, region, mode);
+          if (name.trim()) void onSignIn(name, region, mode, currency);
         }}
       >
         <button
@@ -2099,7 +2314,11 @@ function SignIn({
           <select
             value={region}
             disabled={state.hasSignedIn}
-            onChange={(event) => setRegion(event.target.value as Region)}
+            onChange={(event) => {
+              const nextRegion = event.target.value as Region;
+              setRegion(nextRegion);
+              setCurrency(nextRegion === "CO" ? "COP" : "USD");
+            }}
           >
             <option value="CO">{t("workspace.colombia")}</option>
             <option value="US">{t("workspace.us")}</option>
@@ -2118,16 +2337,18 @@ function SignIn({
             <option value="business">{t("workspace.business")}</option>
           </select>
         </label>
+        <label>
+          {t("common.currency")}
+          <select
+            value={currency}
+            onChange={(event) => setCurrency(event.target.value as Currency)}
+          >
+            <option value="COP">COP</option>
+            <option value="USD">USD</option>
+          </select>
+        </label>
         <p className="privacy-note">{t("signin.privacy")}</p>
-        {storageMode !== "indexeddb" && (
-          <div className={`storage-banner ${storageMode}`} role="status">
-            {t(
-              storageMode === "localstorage"
-                ? "storage.localstorage"
-                : "storage.memory",
-            )}
-          </div>
-        )}
+        <StorageBanner storageMode={storageMode} t={t} />
         {error && (
           <p role="alert" className="field-error">
             {error}
@@ -2164,12 +2385,12 @@ function CalendarPage({
   onMarkPaid: (loanId: string, index: number) => void;
   t: (key: TranslationKey) => string;
 }) {
-  const locale = localeFor(state.language, workspace.currency);
+  const locale = localeFor(state.language, workspace.displayCurrency);
   const aggregate = aggregateWorkspace(
     workspace.loans,
     workspace.payments,
     workspace.income,
-    workspace.currency,
+    workspace.baseCurrency,
     todayDate(),
   );
   const entries = aggregate.calendarEntries;
@@ -2187,16 +2408,22 @@ function CalendarPage({
       label: t("common.amount"),
       value: (entry) => entry.installment.amountMinor,
       render: (entry) =>
-        formatMoney(entry.installment.amountMinor, workspace.currency, locale),
+        formatDisplayMoney(
+          entry.installment.amountMinor,
+          state,
+          workspace,
+          locale,
+        ),
     },
     {
       key: "principal",
       label: t("common.principal"),
       value: (entry) => entry.installment.principalMinor,
       render: (entry) =>
-        formatMoney(
+        formatDisplayMoney(
           entry.installment.principalMinor,
-          workspace.currency,
+          state,
+          workspace,
           locale,
         ),
     },
@@ -2205,9 +2432,10 @@ function CalendarPage({
       label: t("common.interest"),
       value: (entry) => entry.installment.interestMinor,
       render: (entry) =>
-        formatMoney(
+        formatDisplayMoney(
           entry.installment.interestMinor,
-          workspace.currency,
+          state,
+          workspace,
           locale,
         ),
     },
@@ -2216,7 +2444,7 @@ function CalendarPage({
       label: t("calendar.lateInterest"),
       value: (entry) => entry.lateInterestMinor,
       render: (entry) =>
-        formatMoney(entry.lateInterestMinor, workspace.currency, locale),
+        formatDisplayMoney(entry.lateInterestMinor, state, workspace, locale),
     },
     {
       key: "status",
@@ -2231,7 +2459,7 @@ function CalendarPage({
       <div className="page-heading">
         <div>
           <p className="eyebrow">
-            {workspace.currency} · {t("app.estimateNotice")}
+            {workspace.displayCurrency} · {t("app.estimateNotice")}
           </p>
           <h1>{t("calendar.title")}</h1>
         </div>
@@ -2281,7 +2509,7 @@ function QuestPage({
   const scenario = createGameScenario(state.activeMode);
   const locale = localeFor(
     state.language,
-    state.workspaces[state.activeMode].currency,
+    state.workspaces[state.activeMode].displayCurrency,
   );
   const choices: { id: string; label: TranslationKey }[] = [
     { id: "pay_high_interest", label: "quest.payHigh" },
@@ -2311,33 +2539,37 @@ function QuestPage({
       <div className="metric-grid four">
         <Metric
           label={t("quest.cash")}
-          value={formatMoney(
+          value={formatDisplayMoney(
             progress.cashMinor,
-            state.workspaces[state.activeMode].currency,
+            state,
+            state.workspaces[state.activeMode],
             locale,
           )}
         />
         <Metric
           label={t("quest.debt")}
-          value={formatMoney(
+          value={formatDisplayMoney(
             progress.debtMinor,
-            state.workspaces[state.activeMode].currency,
+            state,
+            state.workspaces[state.activeMode],
             locale,
           )}
         />
         <Metric
           label={t("quest.buffer")}
-          value={formatMoney(
+          value={formatDisplayMoney(
             progress.bufferMinor,
-            state.workspaces[state.activeMode].currency,
+            state,
+            state.workspaces[state.activeMode],
             locale,
           )}
         />
         <Metric
           label={t("quest.score")}
-          value={formatMoney(
+          value={formatDisplayMoney(
             getGameScore(progress),
-            state.workspaces[state.activeMode].currency,
+            state,
+            state.workspaces[state.activeMode],
             locale,
           )}
         />
@@ -2405,7 +2637,7 @@ function ReportsPage({
   onPrint: () => void;
   t: (key: TranslationKey) => string;
 }) {
-  const locale = localeFor(state.language, workspace.currency);
+  const locale = localeFor(state.language, workspace.displayCurrency);
   const nextFive = aggregate.calendarEntries
     .filter((entry) => entry.status !== "Paid")
     .slice(0, 5);
@@ -2413,7 +2645,7 @@ function ReportsPage({
     <section className="page-section">
       <div className="page-heading no-print">
         <div>
-          <p className="eyebrow">{workspace.currency}</p>
+          <p className="eyebrow">{workspace.displayCurrency}</p>
           <h1>{t("reports.title")}</h1>
         </div>
         <div className="report-actions">
@@ -2430,7 +2662,7 @@ function ReportsPage({
           <div className="brand-mark">b.</div>
           <div>
             <p className="eyebrow">
-              {t("app.name")} · {workspace.currency}
+              {t("app.name")} · {workspace.displayCurrency}
             </p>
             <h1>{t("reports.title")}</h1>
             <p>
@@ -2442,25 +2674,28 @@ function ReportsPage({
         <div className="metric-grid three">
           <Metric
             label={t("dashboard.principal")}
-            value={formatMoney(
+            value={formatDisplayMoney(
               aggregate.principalRemainingMinor,
-              workspace.currency,
+              state,
+              workspace,
               locale,
             )}
           />
           <Metric
             label={t("dashboard.totalInterest")}
-            value={formatMoney(
+            value={formatDisplayMoney(
               aggregate.interestRemainingMinor,
-              workspace.currency,
+              state,
+              workspace,
               locale,
             )}
           />
           <Metric
             label={t("dashboard.monthlyPayments")}
-            value={formatMoney(
+            value={formatDisplayMoney(
               aggregate.monthlyObligationsMinor,
-              workspace.currency,
+              state,
+              workspace,
               locale,
             )}
           />
@@ -2483,9 +2718,10 @@ function ReportsPage({
                   {formatLocaleDate(entry.installment.dueDate, state.language)}
                 </td>
                 <td>
-                  {formatMoney(
+                  {formatDisplayMoney(
                     entry.installment.amountMinor,
-                    workspace.currency,
+                    state,
+                    workspace,
                     locale,
                   )}
                 </td>

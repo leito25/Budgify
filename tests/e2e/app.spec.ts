@@ -122,6 +122,58 @@ test("sign-in, language preference, and session persist without a password", asy
   expect(errors).toEqual([]);
 });
 
+test("currency display converts values and persists independently per workspace", async ({
+  page,
+}) => {
+  await page.route("https://open.er-api.com/v6/latest/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        result: "success",
+        rates: { COP: 4000, USD: 0.00025 },
+      }),
+    });
+  });
+  await signIn(page);
+  const currency = page.getByRole("combobox", { name: "Currency" });
+  await expect(currency).toHaveValue("USD");
+  const beforeConversion = await page.locator(".hero-details").innerText();
+  await currency.selectOption("COP");
+  await expect(currency).toHaveValue("COP");
+  await expect(
+    page.locator(".eyebrow").filter({ hasText: "COP" }).first(),
+  ).toBeVisible();
+  await expect
+    .poll(async () => page.locator(".hero-details").innerText())
+    .not.toBe(beforeConversion);
+  await page.reload();
+  await expect(page.getByRole("combobox", { name: "Currency" })).toHaveValue(
+    "COP",
+  );
+
+  await page
+    .getByRole("combobox", { name: "Workspace" })
+    .selectOption("business");
+  await expect(page.getByRole("combobox", { name: "Currency" })).toHaveValue(
+    "COP",
+  );
+  await page.getByRole("combobox", { name: "Currency" }).selectOption("USD");
+  await page.reload();
+  await expect(page.getByRole("combobox", { name: "Workspace" })).toHaveValue(
+    "business",
+  );
+  await expect(page.getByRole("combobox", { name: "Currency" })).toHaveValue(
+    "USD",
+  );
+
+  await page
+    .getByRole("combobox", { name: "Workspace" })
+    .selectOption("personal");
+  await expect(page.getByRole("combobox", { name: "Currency" })).toHaveValue(
+    "COP",
+  );
+});
+
 test("theme toggle is available across sign-in and every product section", async ({
   page,
 }) => {
@@ -484,7 +536,9 @@ test("Small Business blocks a fourth active loan until simulated upgrade", async
 }) => {
   const errors = watchBrowserErrors(page);
   await signIn(page, "business", "CO");
-  await expect(page.getByText("COP", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Currency" })).toHaveValue(
+    "COP",
+  );
   await page.getByRole("link", { name: "Loans & Installments" }).click();
   await page.getByRole("button", { name: "Add loan" }).click();
   await fillLoanForm(page, "Fourth business loan", "90000");

@@ -33,6 +33,7 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 async function signIn(mode = "personal", region = "US") {
@@ -56,6 +57,25 @@ async function navigate(name: string) {
 }
 
 describe("app workflows", () => {
+  it("shows the selected display currency without changing stored base values", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ result: "success", rates: { COP: 4000 } }),
+            { status: 200 },
+          ),
+        ),
+    );
+    await signIn();
+    fireEvent.change(screen.getByLabelText("Currency"), {
+      target: { value: "COP" },
+    });
+    await waitFor(() => expect(screen.getByText(/COP/)).toBeTruthy());
+  });
+
   it("starts in light mode and applies a selected theme across sign-in", async () => {
     render(<App />);
     await screen.findByLabelText("Your name");

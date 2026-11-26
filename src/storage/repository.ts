@@ -59,6 +59,8 @@ function isAppState(value: unknown): value is AppState {
   return (
     typeof value.isSignedIn === "boolean" &&
     (value.theme === "light" || value.theme === "dark") &&
+    typeof value.exchangeRateCache === "object" &&
+    value.exchangeRateCache !== null &&
     (!value.isSignedIn ||
       (typeof value.userName === "string" && value.userName.trim().length > 0))
   );
@@ -77,7 +79,48 @@ const defaultMigrations: Record<number, Migration> = {
   2: (data) => {
     if (!isLegacyAppState(data))
       throw new Error("Legacy app data has an invalid structure.");
-    return { ...data, theme: "light" };
+    return { ...data, theme: "light", exchangeRateCache: {} };
+  },
+  3: (data) => {
+    if (!isLegacyAppState(data))
+      throw new Error("Legacy app data has an invalid structure.");
+    const workspaces = data.workspaces as unknown as Record<
+      import("../domain/types").WorkspaceMode,
+      import("../domain/types").Workspace & {
+        currency?: import("../domain/types").Currency;
+      }
+    >;
+    const migratedWorkspaces = {
+      personal: {
+        ...workspaces.personal,
+        baseCurrency:
+          workspaces.personal.baseCurrency ??
+          workspaces.personal.currency ??
+          (workspaces.personal.region === "CO" ? "COP" : "USD"),
+        displayCurrency:
+          workspaces.personal.displayCurrency ??
+          workspaces.personal.currency ??
+          (workspaces.personal.region === "CO" ? "COP" : "USD"),
+      },
+      business: {
+        ...workspaces.business,
+        baseCurrency:
+          workspaces.business.baseCurrency ??
+          workspaces.business.currency ??
+          (workspaces.business.region === "CO" ? "COP" : "USD"),
+        displayCurrency:
+          workspaces.business.displayCurrency ??
+          workspaces.business.currency ??
+          (workspaces.business.region === "CO" ? "COP" : "USD"),
+      },
+    };
+    delete (migratedWorkspaces.personal as { currency?: unknown }).currency;
+    delete (migratedWorkspaces.business as { currency?: unknown }).currency;
+    return {
+      ...data,
+      exchangeRateCache: (data as unknown as AppState).exchangeRateCache ?? {},
+      workspaces: migratedWorkspaces,
+    };
   },
 };
 

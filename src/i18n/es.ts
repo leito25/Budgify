@@ -150,6 +150,8 @@ export const es = {
   "common.invalidTerm": "Ingresa un número entero mayor que cero.",
   "common.status": "Estado",
   "common.currency": "Moneda",
+  "currency.unavailable":
+    "La conversión no está disponible hasta obtener una tasa de cambio.",
   "common.dueDate": "Fecha de pago",
   "common.amount": "Valor",
   "common.principal": "Capital",

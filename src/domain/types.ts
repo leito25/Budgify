@@ -50,7 +50,8 @@ export interface IncomeEntry {
 export interface Workspace {
   mode: WorkspaceMode;
   region: Region;
-  currency: Currency;
+  baseCurrency: Currency;
+  displayCurrency: Currency;
   membershipUpgraded: boolean;
   loans: Loan[];
   payments: Payment[];
