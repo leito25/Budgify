@@ -2,6 +2,8 @@
 
 Budgify is an offline-capable debt and cash-flow planner for Personal and Small Business workspaces in Colombia (COP) and the United States (USD). All calculated amounts are estimates, not contractual amounts or financial advice.
 
+[Open Budgify](https://leito25.github.io/Budgify/)
+
 ## Run locally
 
 Requirements: Node.js 22.12 or newer in a supported Node release line and npm. Quality checks also require Python, [Ruff](https://docs.astral.sh/ruff/installation/), [ty](https://docs.astral.sh/ty/installation/), and [Gitleaks](https://github.com/gitleaks/gitleaks#installing) on PATH. Run these commands from the `Budgify` project directory, where `package.json` and `package-lock.json` are located.
@@ -51,6 +53,6 @@ The name-only local sign-in is not authentication. Anyone using the same browser
 
 ## Deployment
 
-Vite builds static files into `dist/` with relative asset paths for GitHub Pages subpaths. The GitHub Actions Pages workflow deploys pushes to `main`; enable GitHub Pages with **GitHub Actions** as the build and deployment source in repository settings. A live deployment still needs to be enabled and verified in the target repository.
+Vite builds static files into `dist/` with relative asset paths for GitHub Pages subpaths. The GitHub Actions Pages workflow deploys pushes to `main`; enable GitHub Pages with **GitHub Actions** as the build and deployment source in repository settings.
 
 See [docs/wrap-electron.md](docs/wrap-electron.md) and [docs/wrap-capacitor.md](docs/wrap-capacitor.md) for documented future wrapper paths. No desktop or native wrapper is shipped.
