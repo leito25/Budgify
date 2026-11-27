@@ -45,6 +45,21 @@ def test_a_percent_in_a_name_is_found(client, ana):
     assert [r["name"] for r in search(client, ana, "s_p")] == []
 
 
+def test_the_escape_character_and_backslash_are_plain_characters(client, ana):
+    add(client, ana, "/api/income", {**INCOME, "source": "Tip!! and a\\b"})
+    assert [r["name"] for r in search(client, ana, "!!")] == ["Tip!! and a\\b"]
+    assert [r["name"] for r in search(client, ana, "a\\b")] == ["Tip!! and a\\b"]
+    assert search(client, ana, "!") != []
+    assert search(client, ana, "!x") == []
+
+
+def test_each_kind_is_limited_to_twenty_results(client, ana):
+    for number in range(25):
+        add(client, ana, "/api/loans", {**LOAN, "name": f"Many {number:02}"})
+    names = [r["name"] for r in search(client, ana, "many")]
+    assert names == [f"Many {number:02}" for number in range(20)]
+
+
 def test_nothing_matches_and_blank_gives_no_results(client, ana):
     assert search(client, ana, "zzz") == []
     assert search(client, ana, "   ") == []

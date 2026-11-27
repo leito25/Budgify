@@ -29,6 +29,8 @@ function stubDevice(dark: boolean) {
 
 afterEach(() => vi.unstubAllGlobals());
 
+// Saving and restoring the choice (including "system") is covered in
+// storage.test.ts, where the repository lives.
 describe("theme", () => {
   it("is Light by default", () => {
     expect(createInitialState("2026-11-23").theme).toBe("light");

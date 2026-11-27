@@ -36,6 +36,7 @@ export function SearchBox({ search, onSelect, t }: SearchBoxProps) {
   }
 
   function choose(result: SearchResult) {
+    latest.current += 1;
     setOpen(false);
     setText("");
     setOutcome({ status: "idle" });
@@ -61,43 +62,49 @@ export function SearchBox({ search, onSelect, t }: SearchBoxProps) {
   }
 
   const showPanel = open && outcome.status !== "idle";
+  const showList = showPanel && results.length > 0;
   return (
     <div className="search-box" role="search">
       <input
         type="search"
         role="combobox"
         aria-label={t("search.label")}
-        aria-expanded={showPanel}
-        aria-controls={listId}
+        aria-expanded={showList}
+        aria-controls={showList ? listId : undefined}
         aria-autocomplete="list"
         aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
         placeholder={t("search.placeholder")}
         value={text}
         onChange={(event) => change(event.target.value)}
         onKeyDown={onKeyDown}
+        onBlur={() => setOpen(false)}
       />
       {showPanel && (
         <div className="search-panel">
-          <ul id={listId} role="listbox" aria-label={t("search.results")}>
-            {results.map((result, index) => (
-              // Keyboard use goes through the input (aria-activedescendant).
-              // eslint-disable-next-line jsx-a11y/click-events-have-key-events
-              <li
-                key={`${result.kind}-${result.id}`}
-                id={`${listId}-${index}`}
-                role="option"
-                aria-selected={index === active}
-                className={index === active ? "active" : undefined}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => choose(result)}
-              >
-                <span className="search-kind">
-                  {t(result.kind === "loan" ? "search.loan" : "search.income")}
-                </span>
-                {result.name}
-              </li>
-            ))}
-          </ul>
+          {showList && (
+            <ul id={listId} role="listbox" aria-label={t("search.results")}>
+              {results.map((result, index) => (
+                // Keyboard use goes through the input (aria-activedescendant).
+                // eslint-disable-next-line jsx-a11y/click-events-have-key-events
+                <li
+                  key={`${result.kind}-${result.id}`}
+                  id={`${listId}-${index}`}
+                  role="option"
+                  aria-selected={index === active}
+                  className={index === active ? "active" : undefined}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => choose(result)}
+                >
+                  <span className="search-kind">
+                    {t(
+                      result.kind === "loan" ? "search.loan" : "search.income",
+                    )}
+                  </span>
+                  {result.name}
+                </li>
+              ))}
+            </ul>
+          )}
           {outcome.status === "done" && results.length === 0 && (
             <p role="status" className="search-message">
               {t("search.noResults")}

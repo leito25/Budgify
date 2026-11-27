@@ -1,4 +1,10 @@
-import type { Loan } from "../../src/domain/types";
+import type { Loan, PersonRef } from "../../src/domain/types";
+
+export const testPerson: PersonRef = {
+  id: "person-1",
+  name: "Ada Test",
+  email: "ada@example.ng",
+};
 
 export function makeLoan(overrides: Partial<Loan> = {}): Loan {
   return {

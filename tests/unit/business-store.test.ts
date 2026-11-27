@@ -116,5 +116,7 @@ describe("business store", () => {
     const request = vi.fn(() => Promise.reject(new Error("down")));
     const store = new BusinessStore({ request } as unknown as ApiClient);
     await expect(store.createLoan(savedLoan)).rejects.toThrow("down");
+    await expect(store.load()).rejects.toThrow("down");
+    await expect(store.deleteIncome("i1")).rejects.toThrow("down");
   });
 });

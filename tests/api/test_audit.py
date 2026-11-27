@@ -50,3 +50,21 @@ def test_a_person_without_a_name_is_shown_by_email(client, sam):
     loan = client.post("/api/loans", json=LOAN, headers=sam).json()
     assert loan["addedBy"]["name"] is None
     assert loan["addedBy"]["email"] == "sam@budgify.ng"
+
+
+def test_an_edit_cannot_set_the_audit_fields_either(client, ana, sam):
+    loan = client.post("/api/loans", json=LOAN, headers=ana).json()
+    forged = {**LOAN, "addedBy": SAM, "changedBy": ANA, "changedAt": "2000"}
+    edited = client.put(f"/api/loans/{loan['id']}", json=forged, headers=sam).json()
+    assert (edited["addedBy"], edited["changedBy"]) == (ANA, SAM)
+    assert edited["changedAt"].startswith("2026")
+
+
+def test_the_workspace_shows_who_added_and_settled(client, ana, sam):
+    loan = client.post("/api/loans", json=LOAN, headers=ana).json()
+    client.post(f"/api/loans/{loan['id']}/payments", json=PAYMENT, headers=sam)
+    workspace = client.get("/api/workspace", headers=ana).json()
+    payment = workspace["payments"][0]
+    assert (payment["addedBy"], payment["settledBy"]) == (SAM, SAM)
+    stored = [x for x in workspace["loans"] if x["id"] == loan["id"]]
+    assert stored[0]["addedBy"] == ANA

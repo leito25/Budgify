@@ -4,6 +4,8 @@ services:
     runtime: docker
     plan: free
     healthCheckPath: /health
+    # Deploys come from .github/workflows/deploy.yml, after CI passes.
+    autoDeploy: false
     envVars:
       # Set these in Render's dashboard. Never write the values here.
       - key: DATABASE_URL

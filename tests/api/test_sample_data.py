@@ -50,3 +50,11 @@ def test_the_sample_person_has_a_made_up_ng_email(engine: Engine):
 def test_starting_the_app_writes_the_sample_data(client, ana):
     loans_ = client.get("/api/workspace", headers=ana).json()["loans"]
     assert {loan["addedBy"]["email"] for loan in loans_} == {SAMPLE_PERSON_EMAIL}
+
+
+def test_sample_records_are_stamped_with_the_given_time(engine: Engine):
+    migrate(engine)
+    ensure_sample_data(engine, date(2026, 11, 23), NOW)
+    with engine.connect() as connection:
+        stamps = connection.execute(select(loans.c.added_at, loans.c.changed_at)).all()
+    assert set(stamps) == {(NOW, NOW)}

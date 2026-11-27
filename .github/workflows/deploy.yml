@@ -1,0 +1,33 @@
+name: Deploy to Render
+
+# Runs only after the CI workflow succeeds on main. The deploy hook is the only
+# secret in the repository's workflows; CI itself needs none.
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Trigger the Render deploy
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is not set. Add it under Settings, Secrets and variables, Actions."
+            exit 1
+          fi
+          curl --fail --silent --show-error --output /dev/null --request POST "$RENDER_DEPLOY_HOOK_URL"
+          echo "Render deploy requested."

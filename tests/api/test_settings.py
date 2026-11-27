@@ -30,3 +30,15 @@ def test_a_blank_setting_counts_as_missing():
 
 def test_tests_build_the_app_without_an_env_file(client):
     assert client.get("/health").status_code == 200
+
+
+def test_production_start_up_stops_when_a_setting_is_missing(monkeypatch):
+    import importlib
+
+    import dotenv
+
+    monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)
+    for name in VALUES:
+        monkeypatch.delenv(name, raising=False)
+    with pytest.raises(MissingSettingsError):
+        importlib.import_module("api.main")

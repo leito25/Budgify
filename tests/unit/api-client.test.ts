@@ -86,6 +86,30 @@ describe("api client", () => {
     expect(onSignedOut).not.toHaveBeenCalled();
   });
 
+  it("sends no body or content type when there is none", async () => {
+    const fetchMock = vi.fn(() => answer(200, {}));
+    vi.stubGlobal("fetch", fetchMock);
+    await makeClient().client.request("GET", "/api/workspace");
+    const init = (
+      fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    )[1];
+    expect(init.body).toBeUndefined();
+    expect(init.headers).not.toHaveProperty("Content-Type");
+  });
+
+  it("reports a failure to get a token without signing out", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { client, onSignedOut } = makeClient(() =>
+      Promise.reject(new Error("network")),
+    );
+    await expect(client.request("GET", "/api/me")).rejects.toMatchObject({
+      status: null,
+    });
+    expect(onSignedOut).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("reports a missing connection", async () => {
     vi.stubGlobal(
       "fetch",

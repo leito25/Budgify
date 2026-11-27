@@ -10,6 +10,7 @@ import {
 import { MemoryStorageBackend } from "../../src/storage/fallback";
 import { createInitialState, resetState } from "../../src/storage/seed";
 import type { AppState } from "../../src/storage/model";
+import { makeLoan, testPerson } from "../fixtures/loans";
 
 class TestBackend implements StorageBackend {
   private readonly values = new Map<string, string>();
@@ -262,6 +263,59 @@ describe("storage repository", () => {
       createInitialState("2026-11-23"),
     );
     expect(restored.theme).toBe("system");
+  });
+
+  it("keeps audit fields on loans, payments and income through a save", async () => {
+    const backend = new TestBackend("indexeddb");
+    const repository = new StorageRepository([backend]);
+    await repository.load(createInitialState("2026-11-23"));
+    const audit = {
+      addedBy: testPerson,
+      addedAt: "2026-11-20T10:00:00Z",
+      changedBy: testPerson,
+      changedAt: "2026-11-21T10:00:00Z",
+    };
+    await repository.update((state) => {
+      const business = state.workspaces.business;
+      business.loans = [makeLoan(audit)];
+      business.payments = [
+        {
+          loanId: "loan-1",
+          installmentIndex: 1,
+          paidDate: "2026-11-22",
+          scheduledAmountMinor: 100,
+          penaltyMinor: 0,
+          totalPaidMinor: 100,
+          ...audit,
+          settledBy: testPerson,
+          settledAt: "2026-11-22T10:00:00Z",
+        },
+      ];
+      business.income = [
+        {
+          id: "income-1",
+          source: "Sales",
+          description: "",
+          amountMinor: 500,
+          dateReceived: "2026-11-22",
+          frequency: "one_time",
+          ...audit,
+        },
+      ];
+      return state;
+    });
+
+    const loaded = await new StorageRepository([backend]).load(
+      createInitialState("2026-11-23"),
+    );
+    const business = loaded.workspaces.business;
+    expect(business.loans[0]).toMatchObject(audit);
+    expect(business.payments[0]).toMatchObject({
+      ...audit,
+      settledBy: testPerson,
+      settledAt: "2026-11-22T10:00:00Z",
+    });
+    expect(business.income[0]).toMatchObject(audit);
   });
 
   it("migrates schema-v3 currency data without rewriting base monetary values", async () => {

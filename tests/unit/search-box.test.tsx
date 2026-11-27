@@ -78,6 +78,16 @@ describe("search box", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
   });
 
+  it("closes the results when focus leaves the box", async () => {
+    const { input } = setup(() => Promise.resolve([loan]));
+    fireEvent.change(input, { target: { value: "bak" } });
+    await screen.findByRole("listbox");
+    expect(input.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.blur(input);
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(input.getAttribute("aria-expanded")).toBe("false");
+  });
+
   it("chooses a result with the mouse", async () => {
     const { input, onSelect } = setup(() => Promise.resolve([income]));
     fireEvent.change(input, { target: { value: "bak" } });

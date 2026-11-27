@@ -71,6 +71,8 @@ The app is one web service on Render's free plan: FastAPI serves the built front
 2. Enter `DATABASE_URL`, `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` when asked. Use the session pooler address for `DATABASE_URL`, because Supabase's direct address is IPv6 only and Render's free plan needs IPv4.
 3. Open the service's `onrender.com` address and sign in.
 
+To deploy from CI instead of by hand: in the Render service, open Settings, copy the **Deploy Hook** URL, and save it in GitHub as the Actions secret `RENDER_DEPLOY_HOOK_URL`. `.github/workflows/deploy.yml` then deploys after CI passes on `main`, and can also be run by hand from the Actions tab. `render.yaml` sets `autoDeploy: false`, so Render does not deploy on its own.
+
 On the free plan the service sleeps when idle and Supabase pauses an inactive project, so the first request after a pause can take a minute. The Docker image leaves out `api/testing.py` and `tests/`, so the test sign-in never reaches production.
 
 See [docs/wrap-electron.md](docs/wrap-electron.md) and [docs/wrap-capacitor.md](docs/wrap-capacitor.md) for documented future wrapper paths. No desktop or native wrapper is shipped, and a wrapped app would still need the hosted service.

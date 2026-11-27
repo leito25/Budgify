@@ -5,3 +5,6 @@ playwright-report/
 .playwright-mcp/
 coverage/
 .env
+
+__pycache__/
+*.pyc

@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -32,6 +33,17 @@ def test_config_is_public_and_holds_only_the_publishable_values(client, settings
 @pytest.mark.parametrize(("method", "path"), PROTECTED)
 def test_every_api_route_refuses_signed_out(client, method: str, path: str):
     assert getattr(client, method)(path).status_code == 401
+
+
+def test_the_protected_list_covers_every_api_route(client):
+    listed = {(m, p.split("?")[0]) for m, p in PROTECTED}
+    served = {
+        (method, re.sub(r"\{[^}]+\}", "x", path))
+        for path, operations in client.app.openapi()["paths"].items()
+        if path.startswith("/api")
+        for method in operations
+    }
+    assert served <= listed
 
 
 def test_the_built_frontend_is_served(make_client, tmp_path):

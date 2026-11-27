@@ -487,6 +487,27 @@ test("Small Business blocks a fourth active loan until simulated upgrade", async
   expect(errors).toEqual([]);
 });
 
+test("Personal data stays in the browser and never reaches the API", async ({
+  page,
+}) => {
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/") && request.method() !== "GET")
+      writes.push(`${request.method()} ${request.url()}`);
+  });
+  const name = `Personal only ${unique()}`;
+  await signIn(page);
+  await page.getByRole("link", { name: "Loans & Installments" }).click();
+  await page.getByRole("button", { name: "Add loan" }).click();
+  await fillLoanForm(page, name);
+  await page.getByRole("button", { name: "Save" }).click();
+  const row = page.getByRole("row").filter({ hasText: name });
+  await expect(row).toBeVisible();
+  await page.reload();
+  await expect(row).toBeVisible();
+  expect(writes).toEqual([]);
+});
+
 test("Rate Helper shows workspace-specific reference rates and disclaimer", async ({
   page,
 }) => {
