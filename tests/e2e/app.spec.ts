@@ -867,3 +867,22 @@ test("reset restores sample data and mobile layout has no horizontal overflow", 
   ).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("wide tables scroll inside their card and do not widen the phone page", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await signIn(page, "business", "CO");
+  for (const name of [
+    "Loans & Installments",
+    "Income & Balance",
+    "Payment Calendar",
+  ]) {
+    await page.getByRole("link", { name, exact: true }).click();
+    await expect(page.getByRole("heading", { name })).toBeVisible();
+    const width = await page.evaluate(
+      () => document.documentElement.scrollWidth,
+    );
+    expect(width, `${name} widens the page`).toBeLessThanOrEqual(375);
+  }
+});

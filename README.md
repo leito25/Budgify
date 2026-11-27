@@ -26,7 +26,7 @@ uv sync
 npm run serve
 ```
 
-`npm run serve` builds the frontend and runs the app the way Render does, at `http://127.0.0.1:8000`, against the Supabase project in `.env`. Sign in with a person added in the Supabase dashboard. Migrations run when it starts.
+`npm run serve` builds the frontend and runs the app the way Render does, at `http://127.0.0.1:8765`, against the Supabase project in `.env`. Sign in with a person added in the Supabase dashboard. Migrations run when it starts.
 
 For development with hot reload, run `npm run dev:api` and `npm run dev` in two terminals and open the Vite address. Vite proxies `/api` and `/config.json` to the API.
 

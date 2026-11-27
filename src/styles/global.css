@@ -671,6 +671,8 @@ h3 {
 }
 
 .table-scroll {
+  /* Contains the hidden .sr-only labels, which would otherwise widen the page. */
+  position: relative;
   width: 100%;
   overflow-x: auto;
 }

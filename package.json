@@ -16,9 +16,9 @@
     "test:unit": "vitest run --coverage && uv run pytest",
     "test:watch": "vitest",
     "test:e2e": "vite build && playwright test",
-    "serve": "npm run build && uv run uvicorn api.main:app --port 8000",
+    "serve": "npm run build && uv run uvicorn api.main:app --port 8765",
     "serve:test": "vite build && uv run python tests/e2e/server.py",
-    "dev:api": "uv run uvicorn api.main:app --reload --port 8000",
+    "dev:api": "uv run uvicorn api.main:app --reload --port 8765",
     "check:i18n": "node scripts/check-i18n.mjs",
     "reset": "node scripts/reset.mjs"
   },
