@@ -31,7 +31,7 @@ function createLoan(
     principalMinor,
     termMonths,
     rate,
-    rateBasis: mode === "business" ? "effective_annual" : "apr",
+    rateBasis: "apr",
     interestType: id === "grocery" ? "simple" : "compound",
     penaltyRateAnnual: 0.12,
     firstDueDate,
@@ -46,6 +46,7 @@ function createWorkspace(
   displayCurrency: Currency,
   today: string,
 ): Workspace {
+  // Small Business records live on the server, not in the browser.
   const loans =
     mode === "personal"
       ? [
@@ -68,35 +69,7 @@ function createWorkspace(
             0.24,
           ),
         ]
-      : [
-          createLoan(
-            mode,
-            "cafe",
-            "Coffee equipment",
-            18_000_000,
-            18,
-            shiftDate(today, 5),
-            0.24,
-          ),
-          createLoan(
-            mode,
-            "bakery",
-            "Bakery oven",
-            12_500_000,
-            12,
-            shiftDate(today, 15),
-            0.22,
-          ),
-          createLoan(
-            mode,
-            "delivery",
-            "Delivery equipment",
-            9_000_000,
-            10,
-            shiftDate(today, 25),
-            0.2,
-          ),
-        ];
+      : [];
   const income: IncomeEntry[] =
     mode === "personal"
       ? [
@@ -117,24 +90,7 @@ function createWorkspace(
             frequency: "one_time",
           },
         ]
-      : [
-          {
-            id: "business-sales",
-            source: "Monthly sales",
-            description: "",
-            amountMinor: 60_000_000,
-            dateReceived: today,
-            frequency: "recurring",
-          },
-          {
-            id: "business-order",
-            source: "Seasonal order",
-            description: "",
-            amountMinor: 4_000_000,
-            dateReceived: today,
-            frequency: "one_time",
-          },
-        ];
+      : [];
 
   return {
     mode,
@@ -167,9 +123,7 @@ export function createInitialState(
   parseDateOnly(today);
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    userName: null,
-    isSignedIn: false,
-    hasSignedIn: false,
+    hasChosenWorkspace: false,
     activeMode: "personal",
     language: "en",
     theme: "light",

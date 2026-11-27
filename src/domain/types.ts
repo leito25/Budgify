@@ -4,7 +4,21 @@ export type WorkspaceMode = "personal" | "business";
 export type InterestType = "simple" | "compound";
 export type RateBasis = "monthly_nominal" | "effective_annual" | "apr";
 
-export interface Loan {
+export interface PersonRef {
+  id: string;
+  name: string | null;
+  email: string;
+}
+
+/** Who added and changed a shared record, and when. Local records have none. */
+export interface Audit {
+  addedBy?: PersonRef;
+  addedAt?: string;
+  changedBy?: PersonRef;
+  changedAt?: string;
+}
+
+export interface Loan extends Audit {
   id: string;
   name: string;
   description: string;
@@ -18,13 +32,15 @@ export interface Loan {
   createdAt: string;
 }
 
-export interface Payment {
+export interface Payment extends Audit {
   loanId: string;
   installmentIndex: number;
   paidDate: string;
   scheduledAmountMinor: number;
   penaltyMinor: number;
   totalPaidMinor: number;
+  settledBy?: PersonRef;
+  settledAt?: string;
 }
 
 export interface Installment {
@@ -38,7 +54,7 @@ export interface Installment {
 
 export type LoanStatus = "Active" | "In grace" | "Overdue" | "Paid";
 
-export interface IncomeEntry {
+export interface IncomeEntry extends Audit {
   id: string;
   source: string;
   description: string;

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 export interface DataColumn<Row> {
   key: string;
@@ -17,6 +17,8 @@ interface DataTableProps<Row> {
   searchText: (row: Row) => string;
   emptyText: string;
   actions?: (row: Row) => ReactNode;
+  /** The row with this key is highlighted and scrolled into view. */
+  highlightKey?: string;
 }
 
 export function DataTable<Row>({
@@ -29,10 +31,18 @@ export function DataTable<Row>({
   searchText,
   emptyText,
   actions,
+  highlightKey,
 }: DataTableProps<Row>) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState(columns[0]?.key ?? "");
   const [ascending, setAscending] = useState(true);
+  const body = useRef<HTMLTableSectionElement>(null);
+
+  useEffect(() => {
+    body.current
+      ?.querySelector("tr.highlighted")
+      ?.scrollIntoView?.({ block: "center" });
+  }, [highlightKey]);
 
   const visibleRows = useMemo(() => {
     const filtered = rows.filter((row) =>
@@ -109,7 +119,7 @@ export function DataTable<Row>({
               )}
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={body}>
             {visibleRows.length === 0 && (
               <tr>
                 <td
@@ -121,7 +131,13 @@ export function DataTable<Row>({
               </tr>
             )}
             {visibleRows.map((row) => (
-              <tr key={rowKey(row)}>
+              <tr
+                key={rowKey(row)}
+                className={
+                  rowKey(row) === highlightKey ? "highlighted" : undefined
+                }
+                aria-current={rowKey(row) === highlightKey ? "true" : undefined}
+              >
                 {columns.map((column) => (
                   <td key={column.key}>
                     {column.render ? column.render(row) : column.value(row)}

@@ -1,0 +1,14 @@
+node_modules
+tests
+api/testing.py
+.venv
+.env
+.git
+coverage
+playwright-report
+test-results
+.playwright-mcp
+docs
+__pycache__
+.pytest_cache
+.ruff_cache

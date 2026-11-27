@@ -1,6 +1,13 @@
 import { LocalStorageBackend, MemoryStorageBackend } from "./fallback";
 import { IndexedDbStorageBackend } from "./db";
-import { CURRENT_SCHEMA_VERSION, type AppState } from "./model";
+import type { Currency, Workspace, WorkspaceMode } from "../domain/types";
+import type { Language } from "../i18n";
+import {
+  CURRENT_SCHEMA_VERSION,
+  type AppState,
+  type ExchangeRateCache,
+  type Theme,
+} from "./model";
 
 export type StorageMode = "indexeddb" | "localstorage" | "memory";
 
@@ -38,11 +45,24 @@ export interface BrowserRepositorySetup {
 }
 
 const STORAGE_KEY = "budgify-state";
-function isLegacyAppState(
-  value: unknown,
-): value is Omit<AppState, "isSignedIn"> {
+
+/** The shape of saved data before schema 5, which had a name-only profile. */
+interface LegacyAppState {
+  schemaVersion: number;
+  userName: string | null;
+  isSignedIn?: boolean;
+  hasSignedIn: boolean;
+  activeMode: WorkspaceMode;
+  language: Language;
+  theme?: Theme;
+  exchangeRateCache?: ExchangeRateCache;
+  workspaces: Record<WorkspaceMode, Workspace>;
+  gameProgress?: AppState["gameProgress"];
+}
+
+function isLegacyAppState(value: unknown): value is LegacyAppState {
   if (typeof value !== "object" || value === null) return false;
-  const state = value as Partial<Omit<AppState, "isSignedIn">>;
+  const state = value as Partial<LegacyAppState>;
   return (
     typeof state.schemaVersion === "number" &&
     (state.userName === null || typeof state.userName === "string") &&
@@ -55,14 +75,19 @@ function isLegacyAppState(
 }
 
 function isAppState(value: unknown): value is AppState {
-  if (!isLegacyAppState(value) || !("isSignedIn" in value)) return false;
+  if (typeof value !== "object" || value === null) return false;
+  const state = value as Partial<AppState>;
   return (
-    typeof value.isSignedIn === "boolean" &&
-    (value.theme === "light" || value.theme === "dark") &&
-    typeof value.exchangeRateCache === "object" &&
-    value.exchangeRateCache !== null &&
-    (!value.isSignedIn ||
-      (typeof value.userName === "string" && value.userName.trim().length > 0))
+    typeof state.hasChosenWorkspace === "boolean" &&
+    (state.activeMode === "personal" || state.activeMode === "business") &&
+    (state.language === "en" || state.language === "es") &&
+    (state.theme === "light" ||
+      state.theme === "dark" ||
+      state.theme === "system") &&
+    typeof state.exchangeRateCache === "object" &&
+    state.exchangeRateCache !== null &&
+    typeof state.workspaces === "object" &&
+    state.workspaces !== null
   );
 }
 
@@ -85,10 +110,8 @@ const defaultMigrations: Record<number, Migration> = {
     if (!isLegacyAppState(data))
       throw new Error("Legacy app data has an invalid structure.");
     const workspaces = data.workspaces as unknown as Record<
-      import("../domain/types").WorkspaceMode,
-      import("../domain/types").Workspace & {
-        currency?: import("../domain/types").Currency;
-      }
+      WorkspaceMode,
+      Workspace & { currency?: Currency }
     >;
     const migratedWorkspaces = {
       personal: {
@@ -118,9 +141,32 @@ const defaultMigrations: Record<number, Migration> = {
     delete (migratedWorkspaces.business as { currency?: unknown }).currency;
     return {
       ...data,
-      exchangeRateCache: (data as unknown as AppState).exchangeRateCache ?? {},
+      exchangeRateCache: data.exchangeRateCache ?? {},
       workspaces: migratedWorkspaces,
     };
+  },
+  4: (data) => {
+    if (!isLegacyAppState(data))
+      throw new Error("Legacy app data has an invalid structure.");
+    // The name-only profile is gone, and Small Business records now live on the
+    // server. The migration backup keeps the old local copy.
+    const migrated: Record<string, unknown> = {
+      ...data,
+      hasChosenWorkspace: data.hasSignedIn,
+      workspaces: {
+        ...data.workspaces,
+        business: {
+          ...data.workspaces.business,
+          loans: [],
+          payments: [],
+          income: [],
+        },
+      },
+    };
+    delete migrated.userName;
+    delete migrated.isSignedIn;
+    delete migrated.hasSignedIn;
+    return migrated;
   },
 };
 

@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: budgify
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # Set these in Render's dashboard. Never write the values here.
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false

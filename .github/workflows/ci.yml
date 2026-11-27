@@ -31,6 +31,7 @@ jobs:
           uv tool install ruff
           uv tool install ty
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: uv sync
       - run: npm ci
       - run: npm run check:quick
       - run: npm run check:i18n

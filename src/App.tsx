@@ -1,6 +1,8 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   cloneElement,
@@ -8,6 +10,19 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { ApiClient } from "./api/client";
+import { BusinessStore } from "./api/business-store";
+import { useBusinessData, withBusinessData } from "./api/use-business-data";
+import { loadConfig } from "./auth/config";
+import { UserMenu } from "./components/UserMenu";
+import { useResolvedTheme } from "./theme/theme";
+import { SearchBox } from "./search/SearchBox";
+import { searchLocal, type SearchResult } from "./search/local-search";
+import { searchRemote } from "./search/remote-search";
+import { SignInScreen } from "./auth/SignInScreen";
+import { SessionManager } from "./auth/session";
+import type { Session } from "./auth/supabase-auth";
+import { AuditNote, personLabel } from "./components/AuditNote";
 import { DataTable, type DataColumn } from "./components/DataTable";
 import { aggregateWorkspace } from "./domain/aggregates";
 import { canCreateActiveLoan } from "./domain/business-limit";
@@ -30,10 +45,12 @@ import { rateToMonthly } from "./domain/rates";
 import { generateSchedule } from "./domain/schedule";
 import { deriveLoanStatus } from "./domain/status";
 import type {
+  Audit,
   Currency,
   IncomeEntry,
   Loan,
   LoanStatus,
+  Payment,
   Region,
   Workspace,
   WorkspaceMode,
@@ -98,11 +115,19 @@ function todayDate(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
+/** The hash is a page name, optionally followed by a record to highlight: `#loans/<id>`. */
+function parseHash(): { view: ViewName; highlight?: string } {
+  const [route, ...rest] = window.location.hash.slice(1).split("/");
+  const known =
+    navigation.some((item) => item.view === route) || route === "reports";
+  return {
+    view: known ? (route as ViewName) : "dashboard",
+    highlight: known && rest.length > 0 ? rest.join("/") : undefined,
+  };
+}
+
 function getViewFromHash(): ViewName {
-  const route = window.location.hash.slice(1);
-  return navigation.some((item) => item.view === route) || route === "reports"
-    ? (route as ViewName)
-    : "dashboard";
+  return parseHash().view;
 }
 
 function amountFromMinor(amountMinor: number, currency: Currency): string {
@@ -363,10 +388,31 @@ function validationMessage(
   }
 }
 
+/** Small Business records show who added them, and who changed them if someone else did. */
+function auditColumns<Row>(
+  workspace: Workspace,
+  record: (row: Row) => Audit,
+  t: (key: TranslationKey) => string,
+): DataColumn<Row>[] {
+  if (workspace.mode !== "business") return [];
+  return [
+    {
+      key: "addedBy",
+      label: t("audit.addedBy"),
+      value: (row) => {
+        const person = record(row).addedBy;
+        return person ? personLabel(person) : "";
+      },
+      render: (row) => <AuditNote record={record(row)} t={t} />,
+    },
+  ];
+}
+
 function LedgerPage({
   state,
   workspace,
   view,
+  highlightKey,
   onAddLoan,
   onEditLoan,
   onDeleteLoan,
@@ -378,6 +424,7 @@ function LedgerPage({
   state: AppState;
   workspace: Workspace;
   view: "loans" | "income";
+  highlightKey?: string;
   onAddLoan: () => void;
   onEditLoan: (loan: Loan) => void;
   onDeleteLoan: (loan: Loan) => void;
@@ -446,6 +493,7 @@ function LedgerPage({
             ? formatLocaleDate(row.next.dueDate, state.language)
             : t("calendar.paid"),
       },
+      ...auditColumns<(typeof rows)[number]>(workspace, (row) => row.loan, t),
     ];
 
     return (
@@ -465,6 +513,7 @@ function LedgerPage({
           rows={rows}
           columns={columns}
           rowKey={(row) => row.loan.id}
+          highlightKey={highlightKey}
           searchLabel={t("loans.search")}
           actionsLabel={t("common.actions")}
           recordsLabel={t("common.records")}
@@ -526,6 +575,7 @@ function LedgerPage({
       value: (row) => row.entry.dateReceived,
       render: (row) => formatLocaleDate(row.entry.dateReceived, state.language),
     },
+    ...auditColumns<(typeof rows)[number]>(workspace, (row) => row.entry, t),
   ];
 
   return (
@@ -571,6 +621,7 @@ function LedgerPage({
         rows={rows}
         columns={columns}
         rowKey={(row) => row.entry.id}
+        highlightKey={highlightKey}
         searchLabel={t("common.search")}
         actionsLabel={t("common.actions")}
         recordsLabel={t("common.records")}
@@ -622,11 +673,13 @@ function Metric({
 function Dashboard({
   state,
   workspace,
+  userName,
   t,
   go,
 }: {
   state: AppState;
   workspace: Workspace;
+  userName: string | null;
   t: (key: TranslationKey) => string;
   go: (view: ViewName) => void;
 }) {
@@ -701,7 +754,7 @@ function Dashboard({
           <h1>{t("dashboard.title")}</h1>
           <p className="muted">
             {" "}
-            {state.userName ? `${state.userName}, ` : ""}
+            {userName ? `${userName}, ` : ""}
             {t("app.estimateNotice")}
           </p>
         </div>
@@ -1168,6 +1221,7 @@ function LoanEditor({
         </>
       }
     >
+      <AuditNote record={loan} t={t} />
       <form
         id="loan-editor-form"
         className="form-grid"
@@ -1475,6 +1529,7 @@ function IncomeEditor({
         </>
       }
     >
+      <AuditNote record={entry} t={t} />
       <form
         id="income-editor-form"
         className="form-grid"
@@ -1547,12 +1602,34 @@ function IncomeEditor({
   );
 }
 
+type AuthState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "ready"; manager: SessionManager };
+
+async function connectAuth(): Promise<{
+  manager: SessionManager;
+  session: Session | null;
+} | null> {
+  try {
+    const manager = new SessionManager(await loadConfig());
+    return { manager, session: await manager.restore() };
+  } catch {
+    return null;
+  }
+}
+
 // eslint-disable-next-line complexity
 export default function App() {
   const [repository, setRepository] = useState<StorageRepository | null>(null);
-  const [state, setState] = useState<AppState | null>(null);
+  const [localState, setState] = useState<AppState | null>(null);
+  const [auth, setAuth] = useState<AuthState>({ status: "loading" });
+  const [authAttempt, setAuthAttempt] = useState(0);
+  const [session, setSession] = useState<Session | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [storageMode, setStorageMode] = useState<StorageMode>("memory");
   const [view, setView] = useState<ViewName>(getViewFromHash);
+  const [highlight, setHighlight] = useState(() => parseHash().highlight);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [recovery, setRecovery] = useState(false);
@@ -1562,9 +1639,68 @@ export default function App() {
   );
   const [upgradePrompt, setUpgradePrompt] = useState(false);
 
+  const resolvedTheme = useResolvedTheme(localState?.theme ?? "light");
   useLayoutEffect(() => {
-    document.documentElement.dataset.theme = state?.theme ?? "light";
-  }, [state?.theme]);
+    document.documentElement.dataset.theme = resolvedTheme;
+  }, [resolvedTheme]);
+
+  useEffect(() => {
+    let active = true;
+    void connectAuth().then((result) => {
+      if (!active) return;
+      setSession(result?.session ?? null);
+      setAuth(
+        result
+          ? { status: "ready", manager: result.manager }
+          : { status: "error" },
+      );
+    });
+    return () => {
+      active = false;
+    };
+  }, [authAttempt]);
+
+  const manager = auth.status === "ready" ? auth.manager : null;
+  const endSession = useCallback(
+    (expired: boolean) => {
+      manager?.signOut();
+      setSession(null);
+      setSessionExpired(expired);
+    },
+    [manager],
+  );
+  const apiClient = useMemo(
+    () =>
+      manager
+        ? new ApiClient({
+            getToken: () => manager.accessToken(),
+            onSignedOut: () => endSession(true),
+          })
+        : null,
+    [manager, endSession],
+  );
+  const businessStore = useMemo(
+    () => (apiClient ? new BusinessStore(apiClient) : null),
+    [apiClient],
+  );
+  const business = useBusinessData(
+    businessStore,
+    session !== null &&
+      localState?.hasChosenWorkspace === true &&
+      localState.activeMode === "business",
+  );
+  const businessReady =
+    business.state.status === "ready" ? business.state.data : null;
+  const state = useMemo(
+    () =>
+      localState
+        ? withBusinessData(
+            localState,
+            localState.activeMode === "business" ? businessReady : null,
+          )
+        : null,
+    [localState, businessReady],
+  );
 
   useEffect(() => {
     let active = true;
@@ -1599,7 +1735,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const onHashChange = () => setView(getViewFromHash());
+    const onHashChange = () => {
+      const next = parseHash();
+      setView(next.view);
+      setHighlight(next.highlight);
+    };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
@@ -1649,43 +1789,62 @@ export default function App() {
   async function go(nextView: ViewName) {
     window.location.hash = nextView;
     setView(nextView);
+    setHighlight(undefined);
   }
 
-  async function signIn(
-    name: string,
+  /** Small Business searches on the server; Personal searches the local data. */
+  function searchRecords(text: string): Promise<SearchResult[]> {
+    if (state?.activeMode === "business" && apiClient)
+      return searchRemote(apiClient, text);
+    return Promise.resolve(workspace ? searchLocal(workspace, text) : []);
+  }
+
+  function openResult(result: SearchResult) {
+    const next = result.kind === "loan" ? "loans" : "income";
+    window.location.hash = `${next}/${result.id}`;
+  }
+
+  async function chooseWorkspace(
     region: Region,
     mode: WorkspaceMode,
     currency: Currency,
   ) {
     await persist((current) => {
-      if (!current.hasSignedIn) {
+      if (!current.hasChosenWorkspace) {
         const seeded = createInitialState(
           todayDate(),
           { [mode]: region },
           { [mode]: currency },
         );
-        seeded.userName = name.trim();
-        seeded.isSignedIn = true;
+        seeded.hasChosenWorkspace = true;
         seeded.activeMode = mode;
         seeded.language = current.language;
         seeded.theme = current.theme;
-        seeded.hasSignedIn = true;
         seeded.workspaces[mode].baseCurrency = currency;
         seeded.workspaces[mode].displayCurrency = currency;
         return seeded;
       }
-      return {
-        ...current,
-        userName: current.userName ?? name.trim(),
-        isSignedIn: true,
-        activeMode: mode,
-      };
+      return { ...current, activeMode: mode };
     });
   }
 
   async function switchMode(mode: WorkspaceMode) {
     if (state?.activeMode !== mode)
       await persist((current) => ({ ...current, activeMode: mode }));
+  }
+
+  const remoteStore =
+    localState?.activeMode === "business" ? businessStore : null;
+
+  async function saveRemote(action: () => Promise<void>): Promise<boolean> {
+    try {
+      await action();
+      setError("");
+      return true;
+    } catch (caught) {
+      setError(`${t("api.saveError")} ${errorText(caught)}`);
+      return false;
+    }
   }
 
   async function saveLoan(loan: Loan): Promise<boolean> {
@@ -1702,6 +1861,19 @@ export default function App() {
         setUpgradePrompt(true);
         return false;
       }
+    }
+    if (remoteStore) {
+      return saveRemote(async () => {
+        const saved = existing
+          ? await remoteStore.updateLoan({ ...loan, id: existing.id })
+          : await remoteStore.createLoan(loan);
+        business.change((data) => ({
+          ...data,
+          loans: existing
+            ? data.loans.map((item) => (item.id === saved.id ? saved : item))
+            : [...data.loans, saved],
+        }));
+      });
     }
     return persist((current) => {
       const activeWorkspace = current.workspaces[current.activeMode];
@@ -1735,6 +1907,19 @@ export default function App() {
       String(paidCount),
     );
     if (!window.confirm(message)) return;
+    if (remoteStore) {
+      await saveRemote(async () => {
+        await remoteStore.deleteLoan(loan.id);
+        business.change((data) => ({
+          ...data,
+          loans: data.loans.filter((item) => item.id !== loan.id),
+          payments: data.payments.filter(
+            (payment) => payment.loanId !== loan.id,
+          ),
+        }));
+      });
+      return;
+    }
     await persist((current) => {
       const currentWorkspace = current.workspaces[current.activeMode];
       return {
@@ -1754,6 +1939,20 @@ export default function App() {
   }
 
   async function saveIncome(entry: IncomeEntry): Promise<boolean> {
+    if (remoteStore) {
+      const existing = workspace?.income.some((item) => item.id === entry.id);
+      return saveRemote(async () => {
+        const saved = existing
+          ? await remoteStore.updateIncome(entry)
+          : await remoteStore.createIncome(entry);
+        business.change((data) => ({
+          ...data,
+          income: existing
+            ? data.income.map((item) => (item.id === saved.id ? saved : item))
+            : [...data.income, saved],
+        }));
+      });
+    }
     return persist((current) => {
       const activeWorkspace = current.workspaces[current.activeMode];
       const exists = activeWorkspace.income.some(
@@ -1778,6 +1977,16 @@ export default function App() {
 
   async function deleteIncome(entry: IncomeEntry) {
     if (!window.confirm(t("income.deleteConfirm"))) return;
+    if (remoteStore) {
+      await saveRemote(async () => {
+        await remoteStore.deleteIncome(entry.id);
+        business.change((data) => ({
+          ...data,
+          income: data.income.filter((item) => item.id !== entry.id),
+        }));
+      });
+      return;
+    }
     await persist((current) => ({
       ...current,
       workspaces: {
@@ -1806,6 +2015,21 @@ export default function App() {
       todayDate(),
       loan.penaltyRateAnnual,
     );
+    if (remoteStore) {
+      const settled = workspace.payments.some(
+        (item) =>
+          item.loanId === loan.id && item.installmentIndex === installmentIndex,
+      );
+      if (settled) return;
+      await saveRemote(async () => {
+        const saved = await remoteStore.settle(payment);
+        business.change((data) => ({
+          ...data,
+          payments: [...data.payments, saved],
+        }));
+      });
+      return;
+    }
     await persist((current) => {
       const currentWorkspace = current.workspaces[current.activeMode];
       if (
@@ -1843,8 +2067,8 @@ export default function App() {
     }
   }
 
-  async function signOut() {
-    await persist((current) => ({ ...current, isSignedIn: false }));
+  function signOut() {
+    endSession(false);
   }
 
   async function updateLanguage(nextLanguage: Language) {
@@ -1935,7 +2159,7 @@ export default function App() {
     URL.revokeObjectURL(url);
   }
 
-  if (loading)
+  if (loading || auth.status === "loading")
     return (
       <main className="loading-screen" aria-live="polite">
         Budgify
@@ -1972,14 +2196,43 @@ export default function App() {
         {error}
       </main>
     );
-  if (!state.isSignedIn || !state.userName)
+  if (auth.status === "error")
     return (
-      <SignIn
+      <main className="recovery-screen" role="alert">
+        <p>{t("app.configError")}</p>
+        <button
+          type="button"
+          className="button primary"
+          onClick={() => {
+            setAuth({ status: "loading" });
+            setAuthAttempt((count) => count + 1);
+          }}
+        >
+          {t("api.retry")}
+        </button>
+      </main>
+    );
+  if (!session)
+    return (
+      <SignInScreen
+        language={language}
+        t={t}
+        notice={sessionExpired ? t("auth.expired") : undefined}
+        onSignIn={async (email, password) => {
+          const next = await auth.manager.signIn(email, password);
+          setSessionExpired(false);
+          setSession(next);
+        }}
+        onLanguage={(next) => void updateLanguage(next)}
+      />
+    );
+  if (!state.hasChosenWorkspace)
+    return (
+      <WorkspaceSetup
         state={state}
         storageMode={storageMode}
-        onSignIn={signIn}
+        onChoose={chooseWorkspace}
         onLanguage={updateLanguage}
-        onTheme={updateTheme}
         t={t}
         error={error}
       />
@@ -1992,8 +2245,17 @@ export default function App() {
     );
 
   const activeWorkspace = workspace;
+  const activeSession = session;
   function renderContent() {
     if (!state || !aggregate) return null;
+    if (state.activeMode === "business" && business.state.status !== "ready")
+      return (
+        <BusinessLoadStatus
+          status={business.state.status}
+          onRetry={business.reload}
+          t={t}
+        />
+      );
     return (
       <>
         <StorageBanner storageMode={storageMode} t={t} />
@@ -2012,6 +2274,7 @@ export default function App() {
           <Dashboard
             state={state}
             workspace={activeWorkspace}
+            userName={activeSession.user.name}
             t={t}
             go={(next) => void go(next)}
           />
@@ -2021,6 +2284,7 @@ export default function App() {
             state={state}
             workspace={activeWorkspace}
             view={view}
+            highlightKey={highlight}
             onAddLoan={() => setLoanDialog("new")}
             onEditLoan={setLoanDialog}
             onDeleteLoan={(loan) => void deleteLoan(loan)}
@@ -2145,6 +2409,12 @@ export default function App() {
             )}
           </span>
         </a>
+        <SearchBox
+          key={`${state.activeMode}-${language}`}
+          search={searchRecords}
+          onSelect={openResult}
+          t={t}
+        />
         <div className="toolbar-controls">
           <label className="visually-group">
             <span className="sr-only">{t("signin.mode")}</span>
@@ -2187,30 +2457,13 @@ export default function App() {
               <option value="es">{t("language.spanish")}</option>
             </select>
           </label>
-          <button
-            type="button"
-            className="theme-toggle"
-            aria-label={t(
-              state.theme === "light" ? "theme.useDark" : "theme.useLight",
-            )}
-            title={t(
-              state.theme === "light" ? "theme.useDark" : "theme.useLight",
-            )}
-            onClick={() =>
-              void updateTheme(state.theme === "light" ? "dark" : "light")
-            }
-          >
-            <span aria-hidden="true">
-              {state.theme === "light" ? "☾" : "☀"}
-            </span>
-          </button>
-          <button
-            type="button"
-            className="text-button hide-small"
-            onClick={() => void signOut()}
-          >
-            {t("nav.signOut")}
-          </button>
+          <UserMenu
+            user={activeSession.user}
+            theme={state.theme}
+            onTheme={(next) => void updateTheme(next)}
+            onSignOut={signOut}
+            t={t}
+          />
         </div>
       </header>
     );
@@ -2249,9 +2502,6 @@ export default function App() {
             <span className="nav-label">{t("nav.reports")}</span>
           </a>
         </nav>
-        <div className="rail-user" title={state.userName}>
-          {state.userName.slice(0, 1).toUpperCase()}
-        </div>
       </aside>
       <main className="main-content">
         {renderHeader()}
@@ -2262,29 +2512,50 @@ export default function App() {
   );
 }
 
-function SignIn({
+function BusinessLoadStatus({
+  status,
+  onRetry,
+  t,
+}: {
+  status: "idle" | "loading" | "error" | "ready";
+  onRetry: () => void;
+  t: (key: TranslationKey) => string;
+}) {
+  if (status === "error")
+    return (
+      <div className="error-banner" role="alert">
+        <p>{t("api.loadError")}</p>
+        <button type="button" className="button secondary" onClick={onRetry}>
+          {t("api.retry")}
+        </button>
+      </div>
+    );
+  return (
+    <p className="storage-banner" role="status">
+      {t("api.loading")}
+    </p>
+  );
+}
+
+function WorkspaceSetup({
   state,
   storageMode,
-  onSignIn,
+  onChoose,
   onLanguage,
-  onTheme,
   t,
   error,
 }: {
   state: AppState;
   storageMode: StorageMode;
-  onSignIn: (
-    name: string,
+  onChoose: (
     region: Region,
     mode: WorkspaceMode,
     currency: Currency,
   ) => Promise<void>;
   onLanguage: (language: Language) => Promise<void>;
-  onTheme: (theme: Theme) => Promise<void>;
   t: (key: TranslationKey) => string;
   error: string;
 }) {
-  const [name, setName] = useState(state.userName ?? "");
   const [region, setRegion] = useState<Region>(
     state.workspaces[state.activeMode].region,
   );
@@ -2298,41 +2569,16 @@ function SignIn({
         className="signin-card"
         onSubmit={(event) => {
           event.preventDefault();
-          if (name.trim()) void onSignIn(name, region, mode, currency);
+          void onChoose(region, mode, currency);
         }}
       >
-        <button
-          type="button"
-          className="theme-toggle signin-theme-toggle"
-          aria-label={t(
-            state.theme === "light" ? "theme.useDark" : "theme.useLight",
-          )}
-          title={t(
-            state.theme === "light" ? "theme.useDark" : "theme.useLight",
-          )}
-          onClick={() =>
-            void onTheme(state.theme === "light" ? "dark" : "light")
-          }
-        >
-          <span aria-hidden="true">{state.theme === "light" ? "☾" : "☀"}</span>
-        </button>
         <div className="brand-mark">b.</div>
         <p className="eyebrow">{t("app.name")}</p>
         <h1>{t("signin.title")}</h1>
         <label>
-          {t("signin.name")}
-          <input
-            required
-            readOnly={state.userName !== null}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <label>
           {t("workspace.region")}
           <select
             value={region}
-            disabled={state.hasSignedIn}
             onChange={(event) => {
               const nextRegion = event.target.value as Region;
               setRegion(nextRegion);
@@ -2343,9 +2589,7 @@ function SignIn({
             <option value="US">{t("workspace.us")}</option>
           </select>
         </label>
-        {!state.hasSignedIn && (
-          <p className="small muted">{t("signin.regionNote")}</p>
-        )}
+        <p className="small muted">{t("signin.regionNote")}</p>
         <label>
           {t("signin.mode")}
           <select
@@ -2390,6 +2634,21 @@ function SignIn({
         </label>
       </form>
     </main>
+  );
+}
+
+function SettledBy({
+  payment,
+  t,
+}: {
+  payment: Payment | undefined;
+  t: (key: TranslationKey) => string;
+}) {
+  if (!payment?.settledBy) return null;
+  return (
+    <span className="small muted">
+      {t("audit.settledBy")} {personLabel(payment.settledBy)}
+    </span>
   );
 }
 
@@ -2505,7 +2764,17 @@ function CalendarPage({
               {t("calendar.markPaid")}
             </button>
           ) : (
-            <span className="small muted">{entry.paidDate}</span>
+            <span className="audit-note">
+              <span className="small muted">{entry.paidDate}</span>
+              <SettledBy
+                payment={workspace.payments.find(
+                  (item) =>
+                    item.loanId === entry.loanId &&
+                    item.installmentIndex === entry.installment.index,
+                )}
+                t={t}
+              />
+            </span>
           )
         }
       />

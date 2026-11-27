@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createInitialState } from "../../src/storage/seed";
+import { createInitialState, resetState } from "../../src/storage/seed";
 import { aggregateWorkspace } from "../../src/domain/aggregates";
 
 describe("seed data", () => {
-  it("creates independent workspaces with realistic records and useful relative dates", () => {
+  it("creates Personal sample data only, with useful relative dates", () => {
     const today = "2026-11-23";
     const state = createInitialState(today);
     const personal = state.workspaces.personal;
@@ -22,10 +22,8 @@ describe("seed data", () => {
     expect(
       personal.income.some((entry) => entry.frequency === "one_time"),
     ).toBe(true);
-    expect(business.loans).toHaveLength(3);
-    expect(business.loans.every((loan) => loan.firstDueDate >= today)).toBe(
-      true,
-    );
+    expect(business.loans).toEqual([]);
+    expect(business.income).toEqual([]);
     expect(
       aggregateWorkspace(personal.loans, [], personal.income, "USD", today)
         .overdueCount,
@@ -36,5 +34,15 @@ describe("seed data", () => {
           loan.firstDueDate < "2026-10-01" || loan.firstDueDate > "2027-01-31",
       ),
     ).toBe(false);
+  });
+});
+
+describe("reset state", () => {
+  it("restores Personal sample data and leaves Small Business to the server", () => {
+    const state = resetState("2026-11-23");
+    expect(state.workspaces.personal.loans).not.toEqual([]);
+    expect(state.workspaces.business.loans).toEqual([]);
+    expect(state.workspaces.business.payments).toEqual([]);
+    expect(state.hasChosenWorkspace).toBe(false);
   });
 });

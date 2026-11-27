@@ -2,17 +2,20 @@
 
 ## Core Architecture
 
-Budgify is built as a **client-side, offline-capable single-page web application (SPA)** with zero server-side backend or external database dependencies. The MVP delivers the web bundle, hostable statically on **GitHub Pages**, plus documented build/wrap steps for **Electron** (desktop) and **Capacitor** (mobile); working wrapper configs are out of MVP scope. It runs locally from a single documented command across macOS, Linux, and Windows.
+Budgify is a React single-page app served, together with its API, by one **FastAPI** service. Personal data stays in the browser; the shared Small Business workspace lives in **Postgres on Supabase**, reached only through the API. The service runs on **Render's free plan**. Documented build/wrap steps for **Electron** (desktop) and **Capacitor** (mobile) remain, but a wrapped app would still need the hosted service; working wrapper configs are out of scope.
 
-- **Application Shell:** Modern component-based web framework (e.g., React or Vue with TypeScript) compiling to static assets (`dist/`).
-- **Routing:** Client-side hash or memory routing (`HashRouter` / in-app view state) so deep navigation works reliably on GitHub Pages, `file://` / Electron loads, and Capacitor WebViews without server rewrite rules.
-- **Runtime & Build Tooling:** Fast static bundler and dev server (e.g., Vite) configured with relative asset paths (`./`) so the same build artifact works on GitHub Pages subpaths and can later be wrapped for Electron and Capacitor.
-- **Internationalization:** Full English/Spanish UI toggle covering every UI string (forms, charts, Rate Helper, Financial Quest, report headers); user-entered content is never translated or rewritten. All fonts are bundled locally so the app works fully offline.
-- **Currency Model:** One currency per workspace, fixed by region (COP for Colombia, USD for the United States). No conversion or mixed-currency totals.
+- **Application Shell:** React with TypeScript, built by Vite into `dist/`, which FastAPI serves.
+- **Routing:** Client-side hash routing (in-app view state), so deep links work without server rewrite rules. Search results open a ledger through the hash.
+- **Backend:** FastAPI with SQLAlchemy Core and a small migration runner (`api/migrations/`) that runs at startup. Routes in `api/routes/` are found automatically. Settings are `DATABASE_URL`, `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`, read from `.env` only by `api/main.py`.
+- **Sign-in:** Supabase Auth with email and password. The browser calls Supabase with `fetch` and holds only the publishable key and its session. The backend checks the token against the project's public keys (PyJWT) on every request and takes the person from it. There is no sign-up page; people are added in Supabase's dashboard.
+- **Database:** Postgres on Supabase in production (through the session pooler, with prepared statements off), SQLite in memory in tests. Search is case-insensitive on both; `api/db.py` gives SQLite a Unicode-aware `lower()`.
+- **Runtime & Build Tooling:** Vite with relative asset paths (`./`), so the same build can later be wrapped for Electron and Capacitor. Python is managed with `uv`.
+- **Internationalization:** Full English/Spanish UI toggle covering every UI string; user-entered content is never translated or rewritten. All fonts are bundled locally.
+- **Currency Model:** Each workspace has a base currency and a separately chosen display currency, converted with a live rate cached locally.
 
 ## UI, Styling & Data Visualization
 
-- **Styling:** Utility-first CSS or component styling configured strictly for **light mode** with responsive breakpoints covering mobile, laptop, and desktop viewports, honoring Budgify brand tokens/guidelines.
+- **Styling:** Utility-first CSS or component styling with a light mode (the default), a dark mode and a System option that follows the device, chosen in the user menu, and responsive breakpoints covering mobile, laptop, and desktop viewports, honoring Budgify brand tokens/guidelines.
 - **Charts & Calendar:**
   - Principal vs. interest breakdown chart and monthly payment timeline chart on the **Dashboard**.
   - Interactive **Payment Calendar** view highlighting due dates, grace periods, overdue items, and payment status updates.
@@ -21,7 +24,7 @@ Budgify is built as a **client-side, offline-capable single-page web application
 ## Domain Logic & Financial Engine
 
 - **Amortization & Interest Module:** Pure, deterministic TypeScript/JavaScript functions (unit-testable without DOM) handling:
-  - Simple interest and compound interest calculations, including conversions/handling between monthly rates and effective rates (such as Colombian *Efectivo Anual* / *Tasa de Usura* context and US APR conventions).
+  - Simple interest and compound interest calculations, including conversions/handling between monthly rates and effective rates (such as Colombian _Efectivo Anual_ / _Tasa de Usura_ context and US APR conventions).
   - Credit card installment schedules (e.g., 3-month grocery purchases) and standard/micro/small-business loans. The due date is the first payment date, and the full monthly schedule is generated forward from it.
   - Overdue detection and late-payment interest: payments settle whole installments only; after a 5-day grace period, unpaid installments accrue simple interest at the penalty rate, with no compounding.
   - Net monthly cash flow from recurring income only; one-time income is tracked separately in a balance snapshot.
@@ -31,21 +34,24 @@ Budgify is built as a **client-side, offline-capable single-page web application
 
 ## Persistence, Session & Sample Data
 
-- **Local Persistence:** Browser-native **`IndexedDB`** (with a structured storage wrapper and `localStorage` fallback/flags) so all loans, income entries, payment statuses, and game progress persist across browser refreshes and app restarts with no internet connection required. `Personal` and `Small Business` are separate data sets; switching modes swaps the active data.
-- **Local Profile & Session:** Save one name-only local profile separately from the session. Restore an active session across restarts; signing out preserves the name and data and shows the saved name on return. This is not authentication, and there is no registration, cloud sync, or remote server.
-- **Sample Data & Reset:** Seed dataset loaded on first run (realistic credit card installments, microloans, small-business loans across industries, sample income, calendar dates, and overdue examples). A confirmed in-app reset erases the name and local data, restores sample state, and returns to name entry.
-- **Storage Limits:** Browser profiles and future Electron and Capacitor installations use separate local storage. Clearing site/app data, private browsing, or memory-only fallback can lose data; make storage failures visible and do not promise cross-device recovery.
+- **Local Persistence (Personal):** Browser-native **`IndexedDB`** with a `localStorage` and memory fallback. It holds the Personal workspace, each workspace's display currency and language, the theme, cached exchange rates and Financial Quest progress. Schema 5 removed the name-only profile; the migration keeps a backup of the earlier data.
+- **Shared Persistence (Small Business):** Loans, income entries and payments in Postgres, each with who added it, who last changed it and when, and for a payment who settled it. The backend sets these from the signed-in person. Last save wins; there are no live updates.
+- **Session:** Supabase's session is kept in the browser's `localStorage`, restored when the app reopens and refreshed before it expires. A 401 from the API signs the person out.
+- **Sample Data & Reset:** Personal sample records are seeded in the browser and restored by a confirmed reset. Small Business sample records are written once on the server at first start, with a made-up `.ng` sample person.
+- **Storage Limits:** Browser profiles and future Electron and Capacitor installations use separate local storage. Clearing site data, private browsing or memory-only fallback can lose Personal data; make storage failures visible and do not promise cross-device recovery.
 
-## Desktop & Mobile Wrappers (documented, not shipped in the MVP)
+## Desktop & Mobile Wrappers (documented, not shipped)
 
-- **Web / GitHub Pages:** Static build output deployed from the repository's build pipeline; this is the MVP deliverable.
-- **Desktop (`Electron`):** Documented steps for wrapping the built static web app for macOS, Linux, and Windows using local storage without requiring remote APIs.
-- **Mobile (`Capacitor`):** Documented steps for wrapping the same web bundle for iOS/Android shells using local web storage (`IndexedDB`/`localStorage`), keeping push notifications and payment gateways out of MVP scope.
+- **Desktop (`Electron`) and Mobile (`Capacitor`):** Documented steps for wrapping the built web app. A wrapped app needs the hosted service for sign-in and Small Business, and keeps push notifications and payment gateways out of scope.
 - Working wrapper configs and native build scripts are deferred to a later intent.
+
+## Hosting
+
+- **Render (free plan):** One web service built from the `Dockerfile` and described by `render.yaml`; the three settings are entered in Render. The image leaves out `api/testing.py` and `tests/`. The service sleeps when idle and Supabase pauses an inactive project, so the first request can take a minute.
 
 ## Local Development & Verification
 
-- **Single Start Command:** One documented command (e.g., `npm run dev` or `npm start`) starts the local app on macOS, Linux, and Windows without requiring internet access after initial setup.
-- **Reset Command:** One documented command (or browser reset action) clears local persisted data and re-seeds sample data.
-- **Quality & Browser Verification:** Automated unit tests for financial math and game logic, Playwright (or equivalent) end-to-end checks in CI across desktop and mobile viewports with zero console errors, live verification of the GitHub Pages deployment, and a non-technical user demo of the full sign-in-to-report flow.
-- **Scope Protection:** If time requires cuts, the financial math, loans/income CRUD, payment calendar, local persistence, and automated tests are non-negotiable; game depth and chart polish may be simplified.
+- **Run:** `npm run serve` builds the frontend and runs the app as Render does, against Supabase. `npm run dev:api` and `npm run dev` give hot reload. `npm run serve:test` runs the test app with a test sign-in and no Supabase.
+- **Tests:** Vitest (jsdom) and pytest (SQLite in memory, network blocked) via `npm run test:unit`, each test under one second; Playwright end-to-end across four projects, each with its own test server and database, with zero console errors and axe checks. CI needs no secrets.
+- **Reset Command:** A browser reset action (confirmed in the app) clears the local Personal data and re-seeds the Personal samples; `npm run reset` opens the app to do it.
+- **Quality:** `npm run check` runs formatting, lint, complexity, types, secret scanning and the tests.

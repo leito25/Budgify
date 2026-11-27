@@ -2,99 +2,23 @@ import AxeBuilder from "@axe-core/playwright";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { chromium, expect, test, type BrowserContext } from "@playwright/test";
+
 import {
-  chromium,
-  expect,
-  test,
-  type BrowserContext,
-  type Page,
-} from "@playwright/test";
+  chooseTheme,
+  fillLoanForm,
+  fillSignIn,
+  getContrastPair,
+  getControlBoundaryContrast,
+  contrastRatio,
+  signIn,
+  signInOnly,
+  signOut,
+  unique,
+  watchBrowserErrors,
+} from "./support";
 
-function watchBrowserErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text());
-  });
-  page.on("pageerror", (error) => errors.push(error.message));
-  return errors;
-}
-
-async function signIn(page: Page, mode = "personal", region = "US") {
-  await page.clock.install({ time: new Date("2026-11-23T12:00:00.000Z") });
-  await page.goto("/");
-  await page.getByLabel("Your name").fill("Alex");
-  await page.getByLabel("Region").selectOption(region);
-  await page.getByLabel("Workspace").selectOption(mode);
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Your money, in motion." }),
-  ).toBeVisible();
-}
-
-async function fillLoanForm(page: Page, name: string, principal = "90") {
-  await page.locator("#loan-name").fill(name);
-  await page.locator("#loan-principal").fill(principal);
-  await page.locator("#loan-term").fill("3");
-  await page.locator("#loan-rate").fill("0");
-  await page.locator("#loan-first-due-date").fill("2026-12-15");
-}
-
-function contrastRatio(foreground: string, background: string): number {
-  function luminance(color: string): number {
-    const channels = color
-      .match(/\d+(?:\.\d+)?/g)
-      ?.slice(0, 3)
-      .map(Number);
-    if (!channels || channels.length !== 3)
-      throw new Error(`Unexpected computed color: ${color}`);
-    const [red, green, blue] = channels.map((channel) => {
-      const value = channel / 255;
-      return value <= 0.04045
-        ? value / 12.92
-        : ((value + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-  }
-  const first = luminance(foreground);
-  const second = luminance(background);
-  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
-}
-
-async function getContrastPair(
-  page: Page,
-  selector: string,
-): Promise<[string, string]> {
-  return page
-    .locator(selector)
-    .first()
-    .evaluate((element) => {
-      const style = getComputedStyle(element);
-      return [style.color, style.backgroundColor];
-    });
-}
-
-async function getControlBoundaryContrast(
-  page: Page,
-  control: string,
-  surface: string,
-): Promise<number> {
-  const border = await page
-    .locator(control)
-    .first()
-    .evaluate((element) => {
-      const shadow = getComputedStyle(element).boxShadow;
-      const color = shadow.match(/rgba?\([^)]+\)/)?.[0];
-      if (!color) throw new Error(`Missing control boundary: ${shadow}`);
-      return color;
-    });
-  const background = await page
-    .locator(surface)
-    .first()
-    .evaluate((element) => getComputedStyle(element).backgroundColor);
-  return contrastRatio(border, background);
-}
-
-test("sign-in, language preference, and session persist without a password", async ({
+test("language preference and session persist across reloads", async ({
   page,
 }) => {
   const errors = watchBrowserErrors(page);
@@ -114,11 +38,10 @@ test("sign-in, language preference, and session persist without a password", asy
   await expect(
     page.getByRole("heading", { name: "Tu dinero, en movimiento." }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Cerrar sesión" }).click();
-  await expect(page.getByLabel("Tu nombre")).toHaveValue("Alex");
-  await page.reload();
-  await expect(page.getByLabel("Tu nombre")).toHaveValue("Alex");
-  await expect(page.locator('input[type="password"]')).toHaveCount(0);
+  await signOut(page, "es");
+  await expect(
+    page.getByRole("heading", { name: "Inicia sesión en Budgify" }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -258,104 +181,27 @@ test("exports base currency when a display conversion is unavailable", async ({
   expect(csv.split("\r\n")[0]).toContain("Payment (USD)");
 });
 
-test("theme toggle is available across sign-in and every product section", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await expect(
-    page.getByRole("button", { name: "Use dark mode" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Use dark mode" }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.getByLabel("Your name").fill("Alex");
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Your money, in motion." }),
-  ).toBeVisible();
-
-  const screens = [
-    "Dashboard",
-    "Loans & Installments",
-    "Income & Balance",
-    "Payment Calendar",
-    "Financial Quest",
-    "Reports",
-  ];
-  for (const screen of screens) {
-    await page.getByRole("link", { name: screen, exact: true }).click();
-    await expect(
-      page.getByRole("button", { name: "Use light mode" }),
-    ).toBeVisible();
-  }
-
-  await page.getByRole("button", { name: "Use light mode" }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await expect(
-    page.getByRole("button", { name: "Use dark mode" }),
-  ).toBeVisible();
-});
-
-test("keeps a theme change made immediately before sign-in", async ({
-  page,
-}) => {
-  await page.addInitScript(() => {
-    const transaction = IDBDatabase.prototype.transaction;
-    IDBDatabase.prototype.transaction = function (
-      ...args: Parameters<IDBDatabase["transaction"]>
-    ) {
-      const result = transaction.apply(this, args);
-      if (args[1] === "readwrite") {
-        Object.defineProperty(result, "oncomplete", {
-          set(handler: (this: IDBTransaction, event: Event) => void) {
-            result.addEventListener("complete", (event) => {
-              setTimeout(() => handler.call(result, event), 400);
-            });
-          },
-        });
-      }
-      return result;
-    };
-  });
-  await page.goto("/");
-  await page.getByLabel("Your name").fill("Alex");
-  await page.getByRole("button", { name: "Use dark mode" }).click();
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Your money, in motion." }),
-  ).toBeVisible();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.reload();
-  await expect(
-    page.getByRole("heading", { name: "Your money, in motion." }),
-  ).toBeVisible();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-});
-
-test("sign-out preserves the profile and data until a confirmed reset", async ({
+test("sign-out keeps Personal data until a confirmed reset", async ({
   page,
 }) => {
   const errors = watchBrowserErrors(page);
   await signIn(page);
   await page.getByRole("link", { name: "Loans & Installments" }).click();
   await page.getByRole("button", { name: "Add loan" }).click();
-  await fillLoanForm(page, "Saved profile loan");
+  await fillLoanForm(page, "Saved personal loan");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(
-    page.getByRole("row").filter({ hasText: "Saved profile loan" }),
+    page.getByRole("row").filter({ hasText: "Saved personal loan" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByLabel("Your name")).toHaveValue("Alex");
-  await expect(page.getByLabel("Your name")).toHaveAttribute("readonly", "");
-  await page.reload();
-  await expect(page.getByLabel("Your name")).toHaveValue("Alex");
-  await page.getByRole("button", { name: "Continue" }).click();
+  await signOut(page);
   await expect(
-    page.getByRole("row").filter({ hasText: "Saved profile loan" }),
+    page.getByRole("heading", { name: "Sign in to Budgify" }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Email")).toBeVisible();
+  await fillSignIn(page);
+  await expect(
+    page.getByRole("row").filter({ hasText: "Saved personal loan" }),
   ).toBeVisible();
 
   let resetWarning = "";
@@ -364,24 +210,20 @@ test("sign-out preserves the profile and data until a confirmed reset", async ({
     await dialog.dismiss();
   });
   await page.getByRole("button", { name: "Reset sample data" }).click();
-  expect(resetWarning).toContain("name");
+  expect(resetWarning).toContain("Small Business data is not affected");
   await expect(
-    page.getByRole("row").filter({ hasText: "Saved profile loan" }),
+    page.getByRole("row").filter({ hasText: "Saved personal loan" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByLabel("Your name")).toHaveValue("Alex");
-  await page.getByRole("button", { name: "Continue" }).click();
 
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Reset sample data" }).click();
-  await expect(page.getByLabel("Your name")).toHaveValue("");
+  await expect(page.getByLabel("Region")).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("Your name")).toHaveValue("");
-  await page.getByLabel("Your name").fill("Morgan");
+  await expect(page.getByLabel("Region")).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("link", { name: "Loans & Installments" }).click();
   await expect(
-    page.getByRole("row").filter({ hasText: "Saved profile loan" }),
+    page.getByRole("row").filter({ hasText: "Saved personal loan" }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("row").filter({ hasText: "Grocery installment" }),
@@ -389,7 +231,9 @@ test("sign-out preserves the profile and data until a confirmed reset", async ({
   expect(errors).toEqual([]);
 });
 
-test("memory-only mode warns before and after sign-in", async ({ page }) => {
+test("memory-only mode warns when the workspace is chosen", async ({
+  page,
+}) => {
   const errors = watchBrowserErrors(page);
   await page.addInitScript(() => {
     Object.defineProperty(window, "indexedDB", {
@@ -403,32 +247,30 @@ test("memory-only mode warns before and after sign-in", async ({ page }) => {
       },
     });
   });
-  await page.goto("/");
+  await signInOnly(page);
   await expect(
     page.getByRole("status").filter({ hasText: "Memory-only mode" }),
   ).toBeVisible();
-  await page.getByLabel("Your name").fill("Alex");
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Memory-only mode" }),
   ).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("Your name")).toHaveValue("");
+  await expect(page.getByLabel("Email")).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test("a failed profile write is reported without signing in", async ({
+test("a failed setup write is reported without opening the app", async ({
   page,
 }) => {
   const errors = watchBrowserErrors(page);
-  await page.goto("/");
-  await expect(page.getByLabel("Your name")).toBeVisible();
+  await signInOnly(page);
+  await expect(page.getByLabel("Region")).toBeVisible();
   await page.evaluate(() => {
     IDBObjectStore.prototype.put = () => {
       throw new DOMException("Storage full", "QuotaExceededError");
     };
   });
-  await page.getByLabel("Your name").fill("Alex");
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("alert")).toContainText(
     "Your change could not be saved",
@@ -437,11 +279,11 @@ test("a failed profile write is reported without signing in", async ({
     page.getByRole("heading", { name: "Welcome to Budgify" }),
   ).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("Your name")).toHaveValue("");
+  await expect(page.getByLabel("Region")).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test("profile and data survive a browser restart", async ({
+test("the session and Personal data survive a browser restart", async ({
   browserName,
   baseURL,
 }) => {
@@ -480,13 +322,15 @@ test("profile and data survive a browser restart", async ({
     await expect(
       reopened.getByRole("heading", { name: "Your money, in motion." }),
     ).toBeVisible();
-    await expect(reopened.getByText("Alex,", { exact: false })).toBeVisible();
+    await expect(
+      reopened.getByText("Ana Test,", { exact: false }),
+    ).toBeVisible();
     await reopened.getByRole("link", { name: "Loans & Installments" }).click();
     await expect(
       reopened.getByRole("row").filter({ hasText: "Restart saved loan" }),
     ).toBeVisible();
-    await reopened.getByRole("button", { name: "Sign out" }).click();
-    await expect(reopened.getByLabel("Your name")).toHaveValue("Alex");
+    await signOut(reopened);
+    await expect(reopened.getByLabel("Email")).toBeVisible();
     expect(reopenedErrors).toEqual([]);
     await context.close();
     context = undefined;
@@ -495,8 +339,8 @@ test("profile and data survive a browser restart", async ({
     const signedOut = await context.newPage();
     const signedOutErrors = watchBrowserErrors(signedOut);
     await signedOut.goto("/");
-    await expect(signedOut.getByLabel("Your name")).toHaveValue("Alex");
-    await signedOut.getByRole("button", { name: "Continue" }).click();
+    await expect(signedOut.getByLabel("Email")).toBeVisible();
+    await fillSignIn(signedOut);
     await signedOut.getByRole("link", { name: "Loans & Installments" }).click();
     await expect(
       signedOut.getByRole("row").filter({ hasText: "Restart saved loan" }),
@@ -508,7 +352,7 @@ test("profile and data survive a browser restart", async ({
   }
 });
 
-test("legacy signed-out data is preserved when a name is requested", async ({
+test("a schema-4 profile is migrated, keeping Personal data and a backup", async ({
   page,
 }) => {
   const errors = watchBrowserErrors(page);
@@ -534,16 +378,14 @@ test("legacy signed-out data is preserved when a name is requested", async ({
       request.onsuccess = () => {
         const record = JSON.parse(request.result) as {
           schemaVersion: number;
-          data: {
-            schemaVersion: number;
-            userName: string | null;
-            isSignedIn?: boolean;
-          };
+          data: Record<string, unknown>;
         };
-        record.schemaVersion = 1;
-        record.data.schemaVersion = 1;
-        record.data.userName = null;
-        delete record.data.isSignedIn;
+        record.schemaVersion = 4;
+        record.data.schemaVersion = 4;
+        record.data.userName = "Alex";
+        record.data.isSignedIn = true;
+        record.data.hasSignedIn = true;
+        delete record.data.hasChosenWorkspace;
         store.put(JSON.stringify(record), "budgify-state");
       };
       transaction.oncomplete = () => resolve();
@@ -554,33 +396,32 @@ test("legacy signed-out data is preserved when a name is requested", async ({
   });
 
   await page.reload();
-  await expect(page.getByLabel("Your name")).toHaveValue("");
-  await page.getByLabel("Your name").fill("Alex");
-  await page.getByRole("button", { name: "Continue" }).click();
   await expect(
     page.getByRole("row").filter({ hasText: "Legacy saved loan" }),
   ).toBeVisible();
+  const readBackup = () =>
+    page.evaluate(async () => {
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open("budgify");
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const value = await new Promise<unknown>((resolve, reject) => {
+        const request = database
+          .transaction("records")
+          .objectStore("records")
+          .get("budgify-state-backup-v4");
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      database.close();
+      return value;
+    });
+  expect(await readBackup()).toContain("Alex");
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Reset sample data" }).click();
-  await expect(page.getByLabel("Your name")).toHaveValue("");
-  const backup = await page.evaluate(async () => {
-    const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open("budgify");
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const value = await new Promise<unknown>((resolve, reject) => {
-      const request = database
-        .transaction("records")
-        .objectStore("records")
-        .get("budgify-state-backup-v1");
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    database.close();
-    return value;
-  });
-  expect(backup).toBeUndefined();
+  await expect(page.getByLabel("Region")).toBeVisible();
+  expect(await readBackup()).toBeUndefined();
   expect(errors).toEqual([]);
 });
 
@@ -597,7 +438,7 @@ test("loan form validates, creates, searches, sorts, edits, and confirms deletio
   await page.getByRole("button", { name: "Save" }).click();
   const row = page.getByRole("row").filter({ hasText: "E2E Grocery" });
   await expect(row).toBeVisible();
-  await page.getByLabel("Search loans").fill("E2E Grocery");
+  await page.getByLabel("Search loans", { exact: true }).fill("E2E Grocery");
   await page.getByRole("button", { name: "Loan name" }).click();
   await row.getByRole("button", { name: "Edit" }).click();
   await page.getByLabel("Loan name").fill("E2E Grocery edited");
@@ -619,13 +460,14 @@ test("Small Business blocks a fourth active loan until simulated upgrade", async
   page,
 }) => {
   const errors = watchBrowserErrors(page);
+  const name = `Fourth business loan ${unique()}`;
   await signIn(page, "business", "CO");
   await expect(page.getByRole("combobox", { name: "Currency" })).toHaveValue(
     "COP",
   );
   await page.getByRole("link", { name: "Loans & Installments" }).click();
   await page.getByRole("button", { name: "Add loan" }).click();
-  await fillLoanForm(page, "Fourth business loan", "90000");
+  await fillLoanForm(page, name, "90000");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(
     page.getByRole("heading", {
@@ -637,13 +479,11 @@ test("Small Business blocks a fourth active loan until simulated upgrade", async
     .getByRole("dialog", { name: "Add loan" })
     .getByRole("button", { name: "Save" })
     .click();
-  await expect(
-    page.getByRole("row").filter({ hasText: "Fourth business loan" }),
-  ).toBeVisible();
+  const row = page.getByRole("row").filter({ hasText: name });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("Added by Ana Test");
   await page.reload();
-  await expect(
-    page.getByRole("row").filter({ hasText: "Fourth business loan" }),
-  ).toBeVisible();
+  await expect(row).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -709,25 +549,15 @@ test("main screens have no automated accessibility violations", async ({
   page,
 }) => {
   const errors = watchBrowserErrors(page);
-  await page.goto("/");
+  await signInOnly(page, { freezeTime: false });
   await expect(
     page.getByRole("heading", { name: "Welcome to Budgify" }),
   ).toBeVisible();
-  const signInResults = await new AxeBuilder({ page }).analyze();
-  expect(signInResults.violations, "sign-in screen").toEqual([]);
-  await page.getByRole("button", { name: "Use dark mode" }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  expect(
-    await getControlBoundaryContrast(
-      page,
-      ".signin-card input",
-      ".signin-card",
-    ),
-  ).toBeGreaterThanOrEqual(3);
-  const darkSignInResults = await new AxeBuilder({ page }).analyze();
-  expect(darkSignInResults.violations, "dark sign-in screen").toEqual([]);
-  await page.getByLabel("Your name").fill("Alex");
+  const setupResults = await new AxeBuilder({ page }).analyze();
+  expect(setupResults.violations, "workspace choice").toEqual([]);
   await page.getByRole("button", { name: "Continue" }).click();
+  await chooseTheme(page, "Dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
   const bodyContrast = await getContrastPair(page, "body");
   expect(contrastRatio(...bodyContrast)).toBeGreaterThanOrEqual(4.5);
@@ -798,7 +628,7 @@ test("captures dashboard and loans in both themes", async ({
     path: screenshotPath("loans-light.png"),
     fullPage: true,
   });
-  await page.getByRole("button", { name: "Use dark mode" }).click();
+  await chooseTheme(page, "Dark");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.screenshot({
     path: screenshotPath("loans-dark.png"),
@@ -892,7 +722,7 @@ test("income CRUD keeps recurring and one-time amounts distinct", async ({
   await expect(row).toContainText("One time");
   await expect(snapshotMetric).not.toHaveText(snapshotBefore ?? "");
   await expect(recurringMetric).toHaveText(recurringBefore ?? "");
-  await page.getByLabel("Search").fill("E2E consulting");
+  await page.getByLabel("Search", { exact: true }).fill("E2E consulting");
   await row.getByRole("button", { name: "Edit" }).click();
   await page.getByLabel("Source").fill("E2E consulting edited");
   await page.getByRole("button", { name: "Save" }).click();
@@ -980,7 +810,7 @@ test("reset restores sample data and mobile layout has no horizontal overflow", 
   const errors = watchBrowserErrors(page);
   await signIn(page);
   await page.getByRole("combobox", { name: "Language" }).selectOption("es");
-  await page.getByRole("button", { name: "Usar modo oscuro" }).click();
+  await chooseTheme(page, "Oscuro", "es");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   for (const width of [320, 340, 360, 375, 390, 768, 1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -997,19 +827,18 @@ test("reset restores sample data and mobile layout has no horizontal overflow", 
         expect(bounds).not.toBeNull();
         expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
       }
-      const signOut = await page
-        .getByRole("button", { name: "Cerrar sesión" })
+      const avatar = await page
+        .getByRole("button", { name: "Menú de la cuenta" })
         .boundingBox();
-      expect(signOut).not.toBeNull();
-      expect(signOut!.x + signOut!.width).toBeLessThanOrEqual(width);
+      expect(avatar).not.toBeNull();
+      expect(avatar!.x + avatar!.width).toBeLessThanOrEqual(width);
     }
   }
   await page.setViewportSize({ width: 375, height: 667 });
   await page.getByRole("combobox", { name: "Idioma" }).selectOption("en");
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Reset sample data" }).click();
-  await expect(page.getByLabel("Your name")).toHaveValue("");
-  await page.getByLabel("Your name").fill("Alex");
+  await expect(page.getByLabel("Region")).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("link", { name: "Loans & Installments" }).click();
   await expect(

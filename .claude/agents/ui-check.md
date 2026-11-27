@@ -21,11 +21,11 @@ You are a UI checker for Budgify. You inspect the running app and report; you do
 
 ## Setup
 
-Read `docs/spec.md` and the brand skill at `.github/skills/brand/SKILL.md` (and `docs/Brand.md` if the skill points to it). Use only the Playwright MCP server (`mcp__playwright__*`) for the browser. Use the app URL the caller gives you, or `http://localhost:5173`. If the app is not reachable, report that as the blocker. Do not try to start it and do not claim a check passed.
+Read `docs/spec.md` and the brand skill at `.github/skills/brand/SKILL.md` (and `docs/Brand.md` if the skill points to it). Use only the Playwright MCP server (`mcp__playwright__*`) for the browser. Use the app URL the caller gives you, or `http://127.0.0.1:4173`. The caller starts the app with `npm run serve:test`, the test server with fixed sample data, an in-memory database and a test sign-in that never contacts Supabase. Sign in with `ana@budgify.ng` and the password `test-password`. If the app is not reachable, report that as the blocker. Do not try to start it and do not claim a check passed.
 
 ## What to do
 
-1. Open each page of the app (the five main product areas, plus setup or sign-in if present).
+1. Open each page of the app (the sign-in screen when signed out, then the five main product areas).
 2. On each, take a screenshot with `browser_take_screenshot`, saved under `.playwright-mcp/` with a descriptive filename (e.g. `.playwright-mcp/dashboard-dark-mobile.png`). Look at every screenshot.
 3. Check against `docs/spec.md` (behavior, content, flows) and the brand skill (colors, type, spacing, tone). Cover light and dark themes and desktop and mobile widths where the app supports them. Also check `browser_console_messages` for errors.
 4. Use sample data only and avoid destructive actions.

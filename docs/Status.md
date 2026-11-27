@@ -43,9 +43,14 @@
 - Added the GitHub Pages app link to the README.
 - Added Sonnet reviewer and Playwright UI-check subagents, with a project Playwright MCP configuration and ignored screenshots.
 - Changed CI to run the quick check without end-to-end tests, and removed its Playwright browser install, Chrome channel setting and report upload.
+- Implemented the multi-user change (`docs/changes/multi-user/`): Supabase email and password sign-in replaces the name-only profile (storage schema 5, with a backup of the old data); a FastAPI and SQLAlchemy Core backend (`api/`) with migrations at startup, token checks on every request and audit fields (added, changed, settled by) holds the shared Small Business workspace in Postgres, while Personal stays in the browser.
+- Added the top-bar search (server-side for Small Business, local for Personal; a result opens its ledger with the record highlighted) and the user menu (initials, Light, Dark or System theme, Sign out) in place of the theme and Sign out buttons.
+- Added the Dockerfile, `render.yaml` and `.env.example`; removed the GitHub Pages workflow; rewrote the README, TechStack and wrapper notes. Unit tests now run vitest then pytest, each test under one second; Playwright runs four projects, each with its own test server, in-memory database and test sign-in, so nothing contacts Supabase. The staged-format test that runs real Git and Lefthook moved from the unit suite to `tests/e2e/precommit-hook.spec.ts` because it took 6.7 seconds.
+- Multi-user validation: full `npm run check` passes with 148 unit tests (vitest), 76 backend tests (pytest) and 156 end-to-end tests, with 8 expected skips (browser restart, screenshots and the pre-commit hook run in one project only). Gitleaks reports nothing; `ty` and Ruff are clean. pytest warns that Starlette's test client prefers `httpx2` to `httpx`.
 
 ## Remaining release validation
 
+- Run the built app against the real Supabase project (`npm run serve` with a person added in the dashboard), check the token keys (plan risk 3) and Postgres behaviour, then deploy on Render from `render.yaml`. These need the project's credentials and were not run in the coding session.
 - The observed non-technical demo in `docs/demo-script.md` still requires a participant and must be completed outside this coding session.
 - Linked the Colombian preset to the SFC's official interest-certification listing. Recheck the dated values when updating them; never treat them as current offers or legal limits.
 
@@ -54,4 +59,3 @@
 - Use a dark border for the workspace-type control in dark mode instead of white.
 - Use a dark border for the currency control in dark mode instead of white.
 - Use a dark border for the language control in dark mode instead of white.
-- Use a dark border for the dark-mode toggle in dark mode instead of white.
