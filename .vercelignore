@@ -1,0 +1,8 @@
+# The backend is deployed to Render (see render.yaml). Vercel only builds the
+# static frontend, so hide everything that makes it detect a Python project.
+api/
+pyproject.toml
+uv.lock
+check_supabase.py
+Dockerfile
+tests/
