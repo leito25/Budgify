@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -15,7 +17,7 @@ class Settings:
     supabase_publishable_key: str
 
     @classmethod
-    def from_environment(cls, environment: Mapping[str, str]) -> "Settings":
+    def from_environment(cls, environment: Mapping[str, str]) -> Settings:
         missing = [name for name in NAMES if not environment.get(name, "").strip()]
         if missing:
             raise MissingSettingsError(f"Missing settings: {', '.join(missing)}")

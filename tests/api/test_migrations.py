@@ -1,6 +1,6 @@
 from sqlalchemy import Engine, inspect, select
 
-from api.migrations import _applied, migrate, MIGRATIONS
+from api.migrations import MIGRATIONS, _applied, migrate
 
 
 def test_migrations_create_the_tables(engine: Engine):

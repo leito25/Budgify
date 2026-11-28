@@ -13,10 +13,10 @@ import uvicorn
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from api.app import create_app  # noqa: E402
-from api.db import create_sqlite_engine  # noqa: E402
-from api.settings import Settings  # noqa: E402
-from api.testing import TestVerifier, router  # noqa: E402
+from api.app import create_app
+from api.db import create_sqlite_engine
+from api.settings import Settings
+from api.testing import TestVerifier, router
 
 FIXED_DAY = date(2026, 11, 23)
 FIXED_NOW = datetime(2026, 11, 23, 12, 0, tzinfo=UTC)

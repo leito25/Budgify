@@ -1,8 +1,0 @@
-# The backend is deployed to Render (see render.yaml). Vercel only builds the
-# static frontend, so hide everything that makes it detect a Python project.
-# Leading "/" anchors each pattern to the repo root (src/api must stay visible).
-/api/
-/pyproject.toml
-/uv.lock
-/check_supabase.py
-/Dockerfile
