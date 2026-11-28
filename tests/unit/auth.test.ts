@@ -158,6 +158,41 @@ describe("session", () => {
     expect(manager.current()).toBeNull();
   });
 
+  it("stays signed out when a refresh finishes after signing out", async () => {
+    const { manager, fetchMock } = await signedIn();
+    let finish: (value: Response) => void = () => {};
+    fetchMock.mockImplementation(
+      () => new Promise<Response>((resolve) => (finish = resolve)),
+    );
+    now += 3_600_000;
+    const pending = manager.accessToken();
+
+    manager.signOut();
+    finish(await reply(200, tokenResponse("access-2", "refresh-2")));
+
+    await expect(pending).rejects.toBeInstanceOf(SignedOutError);
+    expect(manager.current()).toBeNull();
+    expect(await new SessionManager(config, clock).restore()).toBeNull();
+    await expect(manager.accessToken()).rejects.toBeInstanceOf(SignedOutError);
+  });
+
+  it("keeps a newer sign-in when an earlier refresh is refused late", async () => {
+    const { manager, fetchMock } = await signedIn();
+    let refuse: (value: Response) => void = () => {};
+    fetchMock.mockImplementation(
+      () => new Promise<Response>((resolve) => (refuse = resolve)),
+    );
+    now += 3_600_000;
+    const pending = manager.accessToken();
+
+    fetchMock.mockImplementation(() => reply(200, tokenResponse("access-9")));
+    await manager.signIn("sam@budgify.ng", "secret-pass");
+    refuse(await reply(400, { msg: "expired" }));
+
+    expect(await pending).toBe("access-9");
+    expect(manager.current()?.accessToken).toBe("access-9");
+  });
+
   it("keeps the session when the refresh fails only for lack of a connection", async () => {
     const { manager, fetchMock } = await signedIn();
     fetchMock.mockImplementation(() =>

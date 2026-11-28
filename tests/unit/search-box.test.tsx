@@ -112,3 +112,27 @@ describe("search box", () => {
     expect(screen.getByRole("option").textContent).toContain("Bakery sales");
   });
 });
+
+describe("search box replacement", () => {
+  it("drops an earlier answer once another workspace's box replaces it", async () => {
+    let answerLate: (results: SearchResult[]) => void = () => {};
+    const late = new Promise<SearchResult[]>((resolve) => {
+      answerLate = resolve;
+    });
+    const props = { onSelect: vi.fn(), t };
+    const { rerender } = render(
+      <SearchBox key="business" search={() => late} {...props} />,
+    );
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "b" } });
+    rerender(
+      <SearchBox
+        key="personal"
+        search={() => Promise.resolve([])}
+        {...props}
+      />,
+    );
+    answerLate([loan]);
+    await Promise.resolve();
+    expect(screen.queryByRole("option")).toBeNull();
+  });
+});

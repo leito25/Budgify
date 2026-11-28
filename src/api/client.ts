@@ -13,8 +13,11 @@ export class ApiError extends Error {
 export interface ApiClientOptions {
   /** A token that is valid now, or a SignedOutError. */
   getToken: () => Promise<string>;
-  /** Called when the server refuses the sign-in, so the app can sign out. */
-  onSignedOut: () => void;
+  /**
+   * Called when the server refuses the sign-in, so the app can sign out. It gets
+   * the token the server refused, so a late answer can't end a newer session.
+   */
+  onSignedOut: (refusedToken?: string) => void;
 }
 
 async function failureMessage(response: Response): Promise<string> {
@@ -47,7 +50,7 @@ export class ApiClient {
       throw new ApiError("The server could not be reached.", null);
     }
     if (response.status === 401) {
-      this.options.onSignedOut();
+      this.options.onSignedOut(token);
       throw new ApiError("Sign in required.", 401);
     }
     if (!response.ok)

@@ -60,6 +60,16 @@ describe("api client", () => {
     expect(onSignedOut).toHaveBeenCalledOnce();
   });
 
+  it("tells the app which token the server refused", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => answer(401, { detail: "Sign in" })),
+    );
+    const { client, onSignedOut } = makeClient();
+    await client.request("GET", "/api/workspace").catch(() => undefined);
+    expect(onSignedOut).toHaveBeenCalledWith("token-1");
+  });
+
   it("signs the person out when the session cannot continue", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

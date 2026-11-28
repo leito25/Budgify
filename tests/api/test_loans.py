@@ -54,6 +54,23 @@ def test_an_installment_can_be_settled_once(client, ana):
     assert len(workspace(client, ana)["payments"]) == 1
 
 
+def test_a_concurrent_settle_of_the_same_installment_is_a_conflict(
+    client, ana, monkeypatch
+):
+    from api.routes import loans
+
+    loan = create(client, ana)
+    url = f"/api/loans/{loan['id']}/payments"
+    assert client.post(url, json=PAYMENT, headers=ana).status_code == 201
+    # The other request's check ran before the first insert, so it sees nothing.
+    real = loans.find_payment
+    calls = iter([None])
+    monkeypatch.setattr(
+        loans, "find_payment", lambda *args: next(calls, None) or real(*args)
+    )
+    assert client.post(url, json=PAYMENT, headers=ana).status_code == 409
+
+
 def test_a_large_payment_is_kept(client, ana):
     loan = create(client, ana)
     big = {

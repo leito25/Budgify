@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import type { TranslationKey } from "../i18n";
 import type { SearchResult } from "./local-search";
 
@@ -20,6 +20,14 @@ export function SearchBox({ search, onSelect, t }: SearchBoxProps) {
   const [active, setActive] = useState(-1);
   const [open, setOpen] = useState(false);
   const latest = useRef(0);
+
+  // Answers that arrive after the box is replaced (another workspace or person) are dropped.
+  useEffect(() => {
+    const counter = latest;
+    return () => {
+      counter.current += 1;
+    };
+  }, []);
 
   function change(next: string) {
     setText(next);

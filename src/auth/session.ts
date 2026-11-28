@@ -98,29 +98,42 @@ export class SessionManager {
   }
 
   private refresh(session: Session): Promise<Session> {
-    this.refreshing ??= refreshSession(
+    if (this.refreshing) return this.refreshing;
+    const pending: Promise<Session> = refreshSession(
       this.config,
       session.refreshToken,
       this.clock(),
     )
-      .then((next) => {
-        this.save(next);
-        return next;
-      })
+      .then((next) => this.applyRefreshed(session, next))
       .catch((error: unknown) => {
         if (error instanceof InvalidCredentialsError) {
+          // Only the session that was refused ends; a newer sign-in carries on.
+          if (this.session !== session && this.session) return this.session;
           this.save(null);
           throw new SignedOutError();
         }
         throw error;
       })
       .finally(() => {
-        this.refreshing = null;
+        if (this.refreshing === pending) this.refreshing = null;
       });
-    return this.refreshing;
+    this.refreshing = pending;
+    return pending;
+  }
+
+  /** Keeps a refreshed session only when the session it was started from is still current. */
+  private applyRefreshed(started: Session, next: Session): Session {
+    if (this.session === started) {
+      this.save(next);
+      return next;
+    }
+    // The user signed out or in while the refresh ran: drop its result.
+    if (this.session) return this.session;
+    throw new SignedOutError();
   }
 
   private save(session: Session | null): void {
+    this.refreshing = null;
     this.session = session;
     writeSaved(session);
   }

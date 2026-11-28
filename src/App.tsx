@@ -1674,7 +1674,12 @@ export default function App() {
       manager
         ? new ApiClient({
             getToken: () => manager.accessToken(),
-            onSignedOut: () => endSession(true),
+            onSignedOut: (refusedToken) => {
+              // A late 401 for an earlier sign-in must not end the current one.
+              const current = manager.current()?.accessToken;
+              if (refusedToken === undefined || refusedToken === current)
+                endSession(true);
+            },
           })
         : null,
     [manager, endSession],
@@ -2410,7 +2415,7 @@ export default function App() {
           </span>
         </a>
         <SearchBox
-          key={`${state.activeMode}-${language}`}
+          key={`${state.activeMode}-${language}-${session?.user.id ?? ""}`}
           search={searchRecords}
           onSelect={openResult}
           t={t}

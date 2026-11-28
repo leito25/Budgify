@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from sqlalchemy import delete
+from sqlalchemy.exc import IntegrityError
 
 from api.auth import CurrentPerson
 from api.db import transaction
@@ -91,18 +92,22 @@ def settle_installment(
             raise _not_found()
         if find_payment(connection, loan_id, payment.installment_index):
             raise HTTPException(status_code=409, detail="Already settled.")
-        connection.execute(
-            payments.insert().values(
-                loan_id=loan_id,
-                **_payment_values(payment),
-                added_by=person.id,
-                added_at=now,
-                changed_by=person.id,
-                changed_at=now,
-                settled_by=person.id,
-                settled_at=now,
+        try:
+            connection.execute(
+                payments.insert().values(
+                    loan_id=loan_id,
+                    **_payment_values(payment),
+                    added_by=person.id,
+                    added_at=now,
+                    changed_by=person.id,
+                    changed_at=now,
+                    settled_by=person.id,
+                    settled_at=now,
+                )
             )
-        )
+        except IntegrityError:
+            # A concurrent settle won the race for this installment.
+            raise HTTPException(status_code=409, detail="Already settled.") from None
         row = find_payment(connection, loan_id, payment.installment_index)
         assert row is not None
         return payment_out(row, load_people(connection))
